@@ -25,13 +25,14 @@ describe("the README a stranger reads first", () => {
     "/Users/",
     "../nightwatch",
     "github.com/Zontak-LLC/nightwatch",
+    "github.com/Zontak-LLC/nightshift",
   ])("does not say %s", (word) => {
     expect(README).not.toContain(word);
   });
 
   // The one place the old name is meant: README's note on why the command keeps it. Only that exact sentence is
   // removed, so a second mention anywhere else still fails.
-  const RENAME_NOTE = "Lens was called Night Shift; the repo, the command and ~/.nightshift keep that name for now.";
+  const RENAME_NOTE = "Lens was called Night Shift; the command and ~/.nightshift keep that name for now.";
   const docs: [string, string][] = [
     ["README.md", README.replace(RENAME_NOTE, "")],
     ["SECURITY.md", readFileSync(join(ROOT, "SECURITY.md"), "utf8")],

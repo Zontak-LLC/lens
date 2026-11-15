@@ -12,7 +12,7 @@ A live screen for your Claude Code agents: what they are doing right now, and wh
 You need Node 22 or newer.
 
 ```bash
-git clone https://github.com/Zontak-LLC/nightshift && cd nightshift
+git clone https://github.com/Zontak-LLC/lens && cd lens
 npm install && npm run build
 npm start
 ```
@@ -127,7 +127,7 @@ node scripts/demo-board.mjs      # Lens on invented demo data (the screenshot ab
 
 ## Name
 
-Lens was called Night Shift; the repo, the command and ~/.nightshift keep that name for now.
+Lens was called Night Shift; the command and ~/.nightshift keep that name for now.
 
 ## Licence
 
