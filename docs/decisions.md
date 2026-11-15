@@ -263,6 +263,7 @@ Forge was Day Shift; the identifiers (`store/day-shift.ts`, `DayShiftAgents`) an
 - **The owner's names (2026-10-27):** Day Shift -> Forge, Night Shift -> Lens, Night Watch -> Sentinel (Motherboard
   stays). Only words a person reads change; identifiers keep the old names. This entry is the only doc that holds the
   old-to-new mapping; `test/old-names.ts` lists the old names and the tests keep them off the screens and docs.
+- 2026-11-14: the GitHub repo is now Zontak-LLC/lens (was nightshift); the npm name, the command, ~/.nightshift and NIGHTSHIFT_* keep the old name.
 - **Empty defaults.** A new install pins nothing (`projects.json` is created as `[]`, a damaged one falls back to `[]`)
   and there is no built-in Sentinel site: a project links to a site only through its line's `watchSite`. Recent repos
   under `~/Projects` and busy projects still show by themselves. The old defaults named our own projects, which a

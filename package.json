@@ -12,13 +12,13 @@
   ],
   "author": "Denis Zontak <zontakllc@gmail.com>",
   "license": "MIT",
-  "homepage": "https://github.com/Zontak-LLC/nightshift#readme",
+  "homepage": "https://github.com/Zontak-LLC/lens#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Zontak-LLC/nightshift.git"
+    "url": "git+https://github.com/Zontak-LLC/lens.git"
   },
   "bugs": {
-    "url": "https://github.com/Zontak-LLC/nightshift/issues"
+    "url": "https://github.com/Zontak-LLC/lens/issues"
   },
   "type": "module",
   "engines": {
