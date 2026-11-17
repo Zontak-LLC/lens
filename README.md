@@ -39,7 +39,9 @@ Lens runs on your own computer. It has no accounts, no server and no telemetry: 
 
 `NIGHTSHIFT_PORT` (default 4400), `NIGHTSHIFT_LOGS` (default `~/.claude/projects`), `NIGHTSHIFT_DATA` (where the
 history is kept, default `~/.nightshift`), `NIGHTSHIFT_KEEP_DAYS` (default 30), `NIGHTSHIFT_USAGE` (the usage file)
-and `NIGHTSHIFT_NIGHTWATCH_URL` (Sentinel's address, see below).
+and `NIGHTSHIFT_NIGHTWATCH_URL` (Sentinel's address, see below). `NIGHTSHIFT_STALE_MS` (default 1800000, 30 minutes:
+how long a log's bytes may wait unread before Lens counts as stale and restarts) and `NIGHTSHIFT_WATCHDOG_MS` (default
+60000: how often it checks) exist mostly for tests; anything that is not a positive whole number means the default.
 
 The start page shows the git repositories directly under `~/Projects` that Claude worked in during the last 30 days,
 and any project that is busy right now. To pin projects, name them, hide one or link a Sentinel site, edit
@@ -108,7 +110,7 @@ stays at home). Idle projects stay on the start page, dimmer.
 
 ```bash
 nohup npm start > /tmp/lens.log 2>&1 &    # start (from this folder, after npm run build)
-curl -s localhost:4400/health              # {"ok":true,"status":"ok","lastLineAt":"…"}; 503 "stale" when it fell behind
+curl -s localhost:4400/health              # {"ok":true,"status":"ok","lastLineAt":"…","unreadSince":null}; 503 "stale" when it fell behind
 pkill -f "dist/cli.js"                     # stop (it saves its place and closes the file)
 ```
 

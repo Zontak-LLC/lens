@@ -136,7 +136,7 @@ describe("a very long session keeps growing while Lens watches", () => {
 });
 
 describe("/health tells the truth", () => {
-  it("says stale (503) when logs change but no line was read for the window, with the time of the last line", async () => {
+  it("says stale (503) when a log's new bytes sit unread for the window, with the time of the last line", async () => {
     const project = setup();
     const log = join(project, "s1.jsonl");
     const engine = startEngine({ root: dir, dbPath: ":memory:", everyMs: 10, staleMs: 300 });
@@ -158,10 +158,11 @@ describe("/health tells the truth", () => {
     const body = (await res.json()) as Record<string, unknown>;
     expect(body).toMatchObject({ ok: false, status: "stale", lastLineAt });
     expect(Date.parse(String(body.lastChangeAt))).toBeGreaterThan(Date.parse(String(lastLineAt)));
+    expect(Date.parse(String(body.unreadSince))).toBeGreaterThan(Date.parse(String(lastLineAt)));
     chmodSync(log, 0o600);
   });
 
-  it("says ok on a quiet computer: nothing read for hours, but no log changed either", async () => {
+  it("says ok on a quiet computer: nothing read for hours, but nothing waits to be read either", async () => {
     const project = setup();
     writeFileSync(join(project, "s1.jsonl"), toolUse("t1", "a.ts"));
     const engine = startEngine({ root: dir, dbPath: ":memory:", everyMs: 10, staleMs: 100 });
@@ -177,14 +178,15 @@ describe("/health tells the truth", () => {
   it("says ok while lines keep coming, and on an empty folder", () => {
     const now = Date.parse("2026-11-07T11:00:00Z");
     const min = 60_000;
-    const keepingUp = { startedMs: now - 600 * min, lastLineMs: now - min, newestChangeMs: now - min, nowMs: now };
+    // Keeping up: the newest bytes have waited a minute at most (the next look reads them).
+    const keepingUp = { lastLineMs: now - min, newestChangeMs: now - min, unreadSinceMs: now - min, nowMs: now };
     expect(healthOf(keepingUp).status).toBe("ok");
-    expect(healthOf({ startedMs: now - 600 * min, lastLineMs: null, newestChangeMs: null, nowMs: now }).ok).toBe(true);
-    // The freeze itself: last line at 23:49, the session wrote on until this morning.
+    expect(healthOf({ lastLineMs: null, newestChangeMs: null, unreadSinceMs: null, nowMs: now }).ok).toBe(true);
+    // The freeze itself: last line at 23:49, the session wrote on until this morning and those bytes sat unread.
     const frozen = {
-      startedMs: now - 900 * min,
       lastLineMs: now - 671 * min,
       newestChangeMs: now - 2 * min,
+      unreadSinceMs: now - 670 * min,
       nowMs: now,
     };
     expect(healthOf(frozen)).toEqual({
@@ -192,6 +194,7 @@ describe("/health tells the truth", () => {
       status: "stale",
       lastLineAt: new Date(now - 671 * min).toISOString(),
       lastChangeAt: new Date(now - 2 * min).toISOString(),
+      unreadSince: new Date(now - 670 * min).toISOString(),
     });
   });
 });

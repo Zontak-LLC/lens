@@ -11,10 +11,21 @@ import { DEFAULT_KEEP_DAYS, expand, loadPinned, projectTiles, repoOf, watchSiteO
 import { terminalPrinter } from "./terminal.js";
 import { parseArgs, startBanner, usage } from "./usage.js";
 import { localWatchUrl, startWatchClient, watchOnBoard, watchOnTile } from "./watch/index.js";
-import { watchdog } from "./watcher/index.js";
+import { STALE_MS, WATCHDOG_EVERY_MS, watchdog } from "./watcher/index.js";
 
 const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string };
 const command = parseArgs(process.argv.slice(2));
+
+/** A positive whole number of ms from a setting, or the default for anything else. */
+function settingMs(text: string | undefined, fallback: number): number {
+  const ms = Number(text);
+  return Number.isSafeInteger(ms) && ms > 0 ? ms : fallback;
+}
+/** A path with the home folder shown as `~`. */
+function hideHome(path: string): string {
+  const home = homedir();
+  return path.startsWith(home) ? `~${path.slice(home.length)}` : path;
+}
 
 async function start(): Promise<void> {
   const root = process.env.NIGHTSHIFT_LOGS || join(homedir(), ".claude", "projects");
@@ -26,6 +37,7 @@ async function start(): Promise<void> {
     root,
     dbPath: join(dataDir, "nightshift.db"),
     keepDays,
+    staleMs: settingMs(process.env.NIGHTSHIFT_STALE_MS, STALE_MS),
     onNew: (event) => {
       publish(event);
       if (!("runId" in event)) {
@@ -59,7 +71,7 @@ async function start(): Promise<void> {
     view: (project) => {
       const view = board.view(project);
       const home = homedir();
-      const folder = view.folder?.startsWith(home) ? `~${view.folder.slice(home.length)}` : view.folder;
+      const folder = view.folder ? hideHome(view.folder) : view.folder;
       const pinned = loadPinned(pinnedFile, warn);
       const name = pinned.find((p) => basename(expand(p.path, home)) === project)?.name ?? project;
       const site = watchSiteOf(pinned, project, home);
@@ -91,15 +103,27 @@ async function start(): Promise<void> {
     await Promise.race([server.close(), new Promise((r) => setTimeout(r, 5_000))]); // a stuck Lens must still exit
     process.exit(code);
   };
-  // A Lens that stopped reading cannot heal itself: say so and exit 1, and the service starts a fresh one.
+  // A Lens that stopped reading cannot heal itself, and process.exit() can hang behind stuck file threads (a Mac Lens
+  // stayed alive 13 h in uv_thread_join). So: say so once, then SIGKILL itself; the service starts a fresh one.
+  const killSelf = () => process.kill(process.pid, "SIGKILL");
   const stopWatchdog = watchdog(
     () => engine.health(),
     (health) => {
-      console.error(
-        `nightshift: no line read since ${health.lastLineAt ?? "the start"} while logs changed (${health.lastChangeAt}); exiting so the service starts Lens again`,
+      stopWatchdog();
+      try {
+        engine.stop();
+      } catch {
+        // dying anyway: the history is committed per read, so at most the last read is read again
+      }
+      setTimeout(killSelf, 1_000); // not unref'd: the kill comes even when the write callback never does
+      const unread = engine.unread();
+      const file = unread ? hideHome(unread.path) : "a log";
+      process.stderr.write(
+        `nightshift: ${file} has unread bytes since ${health.unreadSince} (last line read ${health.lastLineAt ?? "the start"}); killing this Lens so the service starts a fresh one\n`,
+        killSelf,
       );
-      void quit(1);
     },
+    settingMs(process.env.NIGHTSHIFT_WATCHDOG_MS, WATCHDOG_EVERY_MS),
   );
   process.on("SIGINT", () => void quit());
   process.on("SIGTERM", () => void quit());

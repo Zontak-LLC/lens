@@ -221,6 +221,31 @@ Forge was Day Shift; the identifiers (`store/day-shift.ts`, `DayShiftAgents`) an
   to 200 characters last, `agent` if empty. Titles, never prompts or a background agent's task. Forge redacts too,
   but a secret typed into a session title would still go out.
 
+## Stale = unread bytes; the watchdog kills itself (2026-11-17)
+
+- **Why.** Two bugs from the deep review. (1) False restarts: stale was "no line read for 30 minutes while a log's
+  mtime changed", and Claude Code touches idle logs about hourly, so Lens restarted itself for nothing 39 times a
+  week on tao and 103 times on the Mac. (2) A restart that did not happen: on the Mac a stale Lens called
+  `process.exit()`, which waited in `uv_thread_join` on the stuck file threads; the process stayed alive 13 h with its
+  port closed, so launchd never started a new one.
+- **Stale = bytes nobody read.** The watcher reports each log's read place (`onPlace`: bytes read, a half-written
+  last line included, also after a failed read). `watcher/backlog.ts` stats the placed logs (sync) on each health
+  check: a log is unread when its size is past its read place. It keeps since when per log, reset when the place
+  moves (catching up a backlog is not stale) and cleared when all is read; a gone log is dropped. Stale = the oldest
+  unread log has waited more than 30 minutes. `/health` adds `unreadSince`; `lastLineAt` and `lastChangeAt` stay for
+  monitors but decide nothing.
+- **The watchdog kills itself.** On the first stale check the CLI stops the watchdog and the engine (in a try),
+  writes one line (`<file, home as ~> has unread bytes since <ISO> (last line read <ISO or the start>)`) with
+  `process.stderr.write(line, cb)` and sends itself SIGKILL in `cb`; a 1 s timer sends it too in case the callback
+  never comes. No `server.close()`, no `process.exit()` on this path. SIGINT/SIGTERM still close gracefully.
+- **Trades.** A log Lens can never read (permissions, a broken file) now restarts Lens every 30 minutes; a restart
+  cannot fix that, but each restart's line names the file. SIGKILL skips pending work: the history is committed per
+  read, so at most the last read is read again, and `INSERT OR IGNORE` makes that harmless. The exit is now
+  killed-by-signal, not 1; launchd `KeepAlive` restarts both, and run by hand the shell shows "Killed".
+- **Known limit.** A log that appears and whose very first read hangs is never placed, so it is not tracked. In the
+  stuck-thread shape the other followed logs fall behind too, so Lens is still caught.
+- **Test settings.** `NIGHTSHIFT_STALE_MS` and `NIGHTSHIFT_WATCHDOG_MS` let a test make the built command stale fast.
+
 ## A stale Lens restarts itself (2026-11-09)
 
 - **Why.** Lens froze again: it read its last line on 2026-11-07 at 16:20 and `/health` said "stale" for two days.
@@ -228,10 +253,9 @@ Forge was Day Shift; the identifiers (`store/day-shift.ts`, `DayShiftAgents`) an
   4 threads; reads that never come back hold all 4, so every later read only waits in line. Passing a stuck file over
   (below) frees nothing. A restart read everything at once. The first stuck read was not caught this time either.
 - **The fix is a new process.** The CLI checks `engine.health()` every minute (`watchdog` in `watcher/health.ts`).
-  On the first "stale" it writes one line to the error log (since when, last change), closes, and exits 1; the
-  service (launchd `KeepAlive`, `com.zontak.lens`) starts a fresh Lens, which carries on from the saved offsets.
-  Stale needs 30 minutes of changes with no line read, so a quiet computer never restarts. The close waits at most
-  5 s for the server, so a stuck Lens still exits. Run by hand (no service), Lens just stops with that message.
+  On the first "stale" it writes one line to the error log and ends itself (since 2026-11-17: SIGKILL, not exit 1,
+  see the entry above); the service (launchd `KeepAlive`, `com.zontak.lens`) starts a fresh Lens, which carries on
+  from the saved offsets. A quiet computer never restarts.
 - **Not chosen.** A bigger thread pool (`UV_THREADPOOL_SIZE`) only delays the same jam.
 
 ## Honest health (2026-11-07)
@@ -241,9 +265,9 @@ Forge was Day Shift; the identifiers (`store/day-shift.ts`, `DayShiftAgents`) an
   held no log file open, and reported no error. A fresh copy on the same logs and history read the 125 MB backlog of
   the 171 MB session at once, so the big file did not cause it by itself; the look loop simply never ran again. The
   exact stuck call was not caught (attaching a debugger to the live process was not allowed).
-- **Stale = work nobody read.** `/health` is stale (HTTP 503) when no whole line was read for 30 minutes (since the
-  start, before the first line) AND a `.jsonl` under the root changed in those 30 minutes. A quiet computer is never
-  stale. The body gives `lastLineAt` and `lastChangeAt` (ISO) so a monitor can say since when.
+- **Stale = work nobody read.** Since 2026-11-17 (entry above): a followed log has had unread bytes for 30 minutes.
+  The first rule here (no line read for 30 minutes and a `.jsonl` with a new mtime) took a touch for work and was
+  replaced. A quiet computer is never stale. The body gives `lastLineAt` and `lastChangeAt` (ISO) so a monitor can say since when.
 - **The probe does not trust the watcher.** It lists and stats the logs with SYNC calls on the request (a few hundred
   stats, milliseconds), so a stuck background read cannot also hang the health answer. The watcher's listing uses the
   same sync code (`watcher/files.ts`); only file reads stay async.
@@ -251,8 +275,8 @@ Forge was Day Shift; the identifiers (`store/day-shift.ts`, `DayShiftAgents`) an
   passed over until it does; a file that fails is reported once (not every second) and retried; at most `chunkBytes`
   (8 MB) of one file are read per look, so a huge backlog is caught up over several looks and never held whole.
   A file that failed keeps the place chosen for it, so a retry never reads its old history as new.
-- **Known limit.** Stale is about Lens as a whole: while one session is read, one other unreadable or stuck log does
-  not make `/health` stale (it is reported once in the error log instead). A per-file check can come later if needed.
+- **Known limit (no longer holds).** Since 2026-11-17 stale is per file: one log whose bytes stay unread for 30
+  minutes (unreadable, stuck) does make `/health` stale and restarts Lens, even while the others are read.
 
 ## Lens: ready for strangers (2026-11-06)
 

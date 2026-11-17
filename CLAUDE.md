@@ -12,15 +12,17 @@ before changing anything; update both in the same commit when a choice changes.
   On start, files quiet for 10 minutes are followed from their end (old history is not "now"); recent ones are read
   (the last 256 KB of a big one); a file that appears later is read from its start. `files.ts` lists the logs (sync,
   so it always returns); at most 8 MB of one file per look; a file that fails is reported once, one whose read has
-  not come back in 2 min is passed over until it does. `health.ts`: stale = no line read for 30 min while a log changed; its `watchdog` makes the CLI exit 1 on the first
-  stale check (every minute), so the service starts a fresh Lens (stuck reads hold all of Node's file threads).
+  not come back in 2 min is passed over until it does. `backlog.ts` + `health.ts`: stale = a followed log has had bytes past
+  the watcher's read place (`onPlace`) for 30 min at the same place (a touched log is not work); its `watchdog` makes
+  the CLI write one line and SIGKILL itself on the first stale check (every minute; `process.exit` can hang behind
+  stuck file threads), so the service starts a fresh Lens.
 - `src/store/`: the board (state from events) and `history.ts`, the SQLite history (`node:sqlite`): every event under a
   key `<file>#<inode>.<epoch>@<line end>.<n>` (`INSERT OR IGNORE`, so a line read twice is stored once and not
   applied twice), plus each file's saved offset. The ONLY place that writes to disk. `src/engine.ts` wires it: replay
   the stored events into the `Board`, prune (30 days, whole sessions, hourly), then `watchLogs` with `resume` and `onRead`.
   A file that was replaced (new inode) or cut short gets a new `epoch`, so its lines are new, not repeats.
 - `src/server/`: `/events` (Server-Sent Events, one `event: <kind>` frame per event), `/health` (the engine's
-  `health()`: `lastLineAt`, `lastChangeAt`, 503 when stale), later `/state`; binds
+  `health()`: `lastLineAt`, `lastChangeAt`, `unreadSince`, 503 when stale), later `/state`; binds
   127.0.0.1 only and answers only a `Host` of `127.0.0.1:<port>` or `localhost:<port>` (DNS rebinding), no CORS;
   a page that stops reading is dropped past 1 MB waiting. `res.write()` there is a network write, which the
   disk-write rule allows. The terminal view prints control characters from logs as `�` (no escape injection).

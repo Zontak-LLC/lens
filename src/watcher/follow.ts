@@ -26,6 +26,8 @@ export type WatchOptions = {
   /** A file was read up to `offset` (the end of its last whole line): remember it. Called after its events. */
   onRead?: (path: string, mark: FileMark) => void;
   onSkipped?: (count: number) => void;
+  /** A log was looked at and its read place is `offset` (bytes read, a half-written line too; a failed read too). */
+  onPlace?: (path: string, offset: number) => void;
   /** Whole lines were read (any lines, events or not): the watcher is alive and keeping up. */
   onLines?: (count: number) => void;
   /** A problem that did not stop the watcher (an unreadable folder or file, a failing `onEvent`, a stuck look). */
@@ -88,6 +90,7 @@ export function watchLogs(opts: WatchOptions): () => void {
     resume,
     onRead,
     onLines,
+    onPlace,
     chunkBytes = 8_000_000,
     stuckMs = 120_000,
   } = opts;
@@ -177,11 +180,13 @@ export function watchLogs(opts: WatchOptions): () => void {
     // Keep the place chosen even when the read failed: a retry must not start the file over from its top.
     if (!chunk) {
       files.set(path, { tail, ino: info.ino, epoch });
+      safely(() => onPlace?.(path, tail.offset));
       return null;
     }
     for (const message of said) if (message.startsWith(`${path}: `)) said.delete(message); // it reads again
     const step = advance(tail, chunk);
     files.set(path, { tail: step.state, ino: info.ino, epoch });
+    safely(() => onPlace?.(path, step.state.offset));
     const mark = step.state.skipping ? null : { ino: info.ino, epoch, offset: committed(step.state) };
     return { path, ino: info.ino, epoch, lines: step.lines, ends: step.ends, mark };
   }
