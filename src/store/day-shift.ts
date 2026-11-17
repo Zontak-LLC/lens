@@ -17,11 +17,6 @@ export type DayShiftAgents = { agents: DayShiftAgent[] };
 const KEPT = 20;
 /** `role` and `worksOn` are at most 200 characters each. */
 const MAX_TEXT = 200;
-/**
- * Minutes before Forge marks a pipeline agent stuck: long checks like `npm run ci` are normal for them (the owner's
- * decision, see decisions.md). Main sessions and background agents send null, so Forge's own 15 minutes apply.
- */
-const PIPELINE_LIMIT_MINUTES = 30;
 
 /** Single spaces, at most 200 characters (cut last, never inside a character pair), never empty. */
 function shortText(text: string, empty: string): string {
@@ -49,7 +44,8 @@ export function runningAgents(seated: Seated[]): DayShiftAgents {
       role: shortText(desk.role ?? "", "agent"),
       worksOn: worksOnOf(desk),
       startedAt: isoOrNull(lastAt),
-      limitMinutes: desk.role === "pipeline agent" ? PIPELINE_LIMIT_MINUTES : null,
+      // Always null, so Forge's own 15 minutes apply (the 30 minutes for pipelines went with them, issue 28).
+      limitMinutes: null,
     })),
   };
 }

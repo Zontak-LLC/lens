@@ -36,15 +36,15 @@ Every choice below was picked for this job, not from habit. The runner-up is nam
 ## 5. What it reads (the data)
 
 - **Claude Code session logs:** one JSON-lines file per session, under `~/.claude/projects/<project-folder>/<session-id>.jsonl`. Each line is one event: a message, a tool call (read a file, edit a file, run a command), a tool result, with a timestamp, the working folder and the git branch.
-- **Workflow journals:** when a multi-agent workflow runs, `.../subagents/workflows/<run-id>/journal.jsonl` records each agent: started, finished, result.
+- **Not read:** multi-agent workflow runs under `.../subagents/workflows/`. Forge runs and shows them (decisions.md, 2026-11-17).
 - Lens only **reads** these files. It never writes to them, never starts or stops an agent, and never sends anything off the Mac.
 
 ## 5b. Background agents
 
 A session can start background agents. Their logs sit next to the session (`<session>/subagents/agent-<id>.jsonl`,
 name in `agent-<id>.meta.json`). Lens follows them like any log. Each is a worker linked to its parent session and
-filed under the project it really works in (decisions.md says how, and where it can be wrong). The board shows them
-under the line, the NOW strip counts the active ones, the Terminal tab streams their steps tagged with their name, the
+filed under the project it really works in (decisions.md says how, and where it can be wrong). The Board tab lists
+them under the NOW strip, which counts the active ones, the Terminal tab streams their steps tagged with their name, the
 Timeline draws a bar each, and the start page lists projects that only helpers touched.
 
 ## 6. Version 1 scope (the MVP)
@@ -52,7 +52,8 @@ Timeline draws a bar each, and the start page lists projects that only helpers t
 **In:**
 1. **Now:** every Claude Code session active in the last 10 minutes, one row each: project, branch, what it is doing right now ("Editing src/lib/day-nav.ts", "Running npm run ci"), and how long ago. It updates live (under 2 seconds after the log changes).
 2. **Session detail:** click a session to see its steps as a timeline: reads, edits, commands, test results, in order, with times.
-3. **Workflow board:** when a workflow is running, its agents as cards moving through stations (queued, working, checking, done, skipped), like the 2026-10-23 assembly line.
+3. **Background agents:** each project's board lists the background agents working in it (section 5b). Multi-agent
+   workflow runs are Forge's to run and show, not Lens's (decisions.md, 2026-11-17).
 4. **A board per project (the owner's choice, 2026-10-23):** each project has its own board at its own address
    (`http://localhost:4400/<project>`); open as many as you like, side by side in their own windows or tabs. One running
    Lens serves them all. **Every board says plainly which project it shows:** the GitHub repo
@@ -89,14 +90,13 @@ Claude Code log files ──► Watcher ──► Parser ──► Event store (
 - **Stream:** `GET /events` sends every new event to the open pages (SSE); `GET /state` returns the current state for a page that just opened.
 - **Desks:** `GET /agents` (`http://127.0.0.1:4400/agents`, the port is `NIGHTSHIFT_PORT`) returns every live agent as
   JSON in board-kit's `Agents` shape (`list` of `Agent`, commit 0c60024) for Motherboard's Agents tab: role, title and
-  ticket, repo, model, current step and the two before it, step count, run time and `state` (`waits` = "waits for
+  repo, model, current step and the two before it, step count, run time and `state` (`waits` = "waits for
   you"). Read only (other methods get 405), `cache-control: no-store`, this computer only (Host check), no CORS. No
   dollar cost: `costUsd` is null. Tokens are kept per agent, but the contract has no field for them yet (decisions.md).
 - **Forge's Agents tile:** `GET /api/agents` (`http://127.0.0.1:4400/api/agents`) returns only the running agents
   (working or waiting) in Forge's shape (issue 14): `{ "agents": [ { role, worksOn, startedAt, limitMinutes } ] }`,
-  at most 20, waiting first. `worksOn` is `<repo>: <ticket> <title>` (single spaces, at most 200 characters, home folder
-  as `~`); `startedAt` the agent's newest line; `limitMinutes` 30 for a pipeline agent, null otherwise (Forge's
-  15). Same rules as `/agents`: GET only (405), `no-store`, no CORS, and only a Host of `127.0.0.1` or `localhost`
+  at most 20, waiting first. `worksOn` is `<repo>: <title>` (single spaces, at most 200 characters, home folder
+  as `~`); `startedAt` the agent's newest line; `limitMinutes` always null (Forge's 15). Same rules as `/agents`: GET only (405), `no-store`, no CORS, and only a Host of `127.0.0.1` or `localhost`
   with the port is answered (any other, e.g. a container name or a LAN address, gets 403).
 - **Page:** plain TypeScript and CSS (no framework needed for v1), drawn from the state plus the stream.
 - **Layers only point one way:** page → stream → store → parser. The page never reads files; the parser never touches the database. An architecture test enforces it.
@@ -105,34 +105,31 @@ Claude Code log files ──► Watcher ──► Parser ──► Event store (
 
 - **Readable for hours** (decided 2026-10-24, see `decisions.md`): dark grey-blue, soft off-white text, colour only with a
   meaning (blue live, green done, amber needs attention), sans titles and monospace machine output.
-- **Laid out like the first design (the owner's pick, 2026-10-24):** a header with the status light, "Lens ·
-  <project>", the repo, folder and branch, and the totals (done of total, merged, skipped, average ticket time,
-  estimated finish, time on shift); a NOW strip (the ticket being worked on, its step and a live clock; amber with the
-  trouble and its reset time when work has stopped); three tabs, remembered: **Board** (the assembly line: Queued,
-  Working, Checking, Done, Skipped, each with a belt along its foot; the station at work runs its belt, stations already
-  passed turn green), **Terminal** (one block per step, the running one marked) and **Timeline** (one row per hour, a
-  bar per ticket, a line for now). A Key=Action line stays at the foot and the keys work (arrows move between tickets
-  and stations, Enter opens, Esc closes).
-- One fixed board height; a full station scrolls inside itself with "+N more"; finished cards carry a result code and
-  the time they took (`MRG · 30m 00s`); a click opens the ticket in a dialog (status, summary, last steps, its pull request).
-- Motion only where it explains a change (a ticket gliding to its new column, a step rolling over). Nothing loops except
-  the status light's slow blink. Reduced motion turns all of it off.
-- No brown, no glow, no pure black. Four colours, one meaning each: blue working, green done, amber needs you, grey queued or skipped.
+- **Laid out like the first design (the owner's pick, 2026-10-24; its ticket floor removed 2026-11-17, mockup in
+  `docs/board-design/`):** a header with the status light, "Lens · <project>", the repo,
+  folder and branch, the usage meters, the LIVE light and the Sentinel link; a NOW strip (the newest step and who took
+  it; amber with the trouble and its reset time when work has stopped); three tabs, remembered: **Board** (the From
+  Sentinel lane when there is one, then the background agents), **Terminal** (one block per step, the running one
+  marked; the input chip shows the branch or "idle") and **Timeline** (one row per hour, a bar per background agent, a
+  line for now). The foot says "read only · nothing leaves this computer".
+- Motion only where it explains a change. Nothing loops except the status light's slow blink and a running agent's
+  bar. Reduced motion turns all of it off.
+- No brown, no glow, no pure black. Four colours, one meaning each: blue working, green done, amber needs you, grey idle.
 
 ## 8b. When things go wrong
 
 The board never looks busy while nothing happens. The NOW strip turns amber and says it in words, with the next step:
 
-| What happens                         | What the board says                                                                                                                                                                                                                                                                        |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Usage limit                          | "Paused: usage limit since 21:40 · resets 22:40 (in 58 min). Nothing is lost; work continues by itself."                                                                                                                                                                                   |
-| Connection lost, computer slept      | "Waiting on Claude: connection trouble since 21:40."                                                                                                                                                                                                                                       |
-| Login expired                        | "Logged out: run /login in Claude Code since 21:40."                                                                                                                                                                                                                                       |
-| A ticket with no step for 30 minutes | "Quiet since 21:40" on its card                                                                                                                                                                                                                                                            |
-| The page loses Lens                  | The status light turns amber: "RECONNECTING…"                                                                                                                                                                                                                                              |
-| Lens itself stops reading the logs   | `GET /health` answers 503 `{"ok":false,"status":"stale","lastLineAt":…,"unreadSince":…}`: a log has had bytes Lens has not read for 30 minutes (a log that is only touched is not work); Lens then writes one line naming the file and kills itself (SIGKILL), and the service restarts it |
+| What happens                       | What the board says                                                                                                                                                                                                                                                                        |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Usage limit                        | "Paused: usage limit since 21:40 · resets 22:40 (in 58 min). Nothing is lost; work continues by itself."                                                                                                                                                                                   |
+| Connection lost, computer slept    | "Waiting on Claude: connection trouble since 21:40."                                                                                                                                                                                                                                       |
+| Login expired                      | "Logged out: run /login in Claude Code since 21:40."                                                                                                                                                                                                                                       |
+| The page loses Lens                | The status light turns amber: "RECONNECTING…"                                                                                                                                                                                                                                              |
+| Lens itself stops reading the logs | `GET /health` answers 503 `{"ok":false,"status":"stale","lastLineAt":…,"unreadSince":…}`: a log has had bytes Lens has not read for 30 minutes (a log that is only touched is not work); Lens then writes one line naming the file and kills itself (SIGKILL), and the service restarts it |
 
-A paused ticket says so on its card. Each notice clears by itself at the next real step.
+A background agent stopped by a limit shows as waiting on its desk (`GET /agents`). Each notice clears by itself at the
+next real step.
 
 ## 9. How we know it works (scenarios)
 
@@ -142,7 +139,9 @@ Each scenario is an automated test that feeds real-shaped log lines in and check
 3. **Two projects at once:** two projects work at the same time; each board shows only its own project's sessions and
    steps, never mixed, and the start page lists both. A third project that was busy yesterday but is quiet now is not
    listed. Each board's header and tab title name its repo (or folder), so the two windows cannot be confused.
-4. **A workflow runs:** a journal records 3 agents; the board shows them moving queued → working → done, and a skipped one in "skipped".
+4. **A workflow runs (left to Forge):** a session folder holds a workflow run under `subagents/workflows/`; Lens shows
+   none of its agents on a board, a tile, `GET /agents` or `GET /api/agents`, and a history from an older Lens replays
+   without them.
 5. **A broken line:** a half-written or unknown log line is skipped and counted, never crashes the service.
 6. **Restart:** stop and start Lens; history and current state come back from SQLite; nothing is shown twice.
 7. **Last night:** after an 8-hour run, "Last night" lists the sessions, the files changed and any failed commands.
@@ -189,6 +188,7 @@ Claude writes most of the code; these keep it from drifting into a mess on a lon
 
 ## 13. Change log
 
+- 1.4 (2026-11-17): Lens no longer follows multi-agent workflow runs or draws their ticket floor; Forge runs and shows them (issue 28). The Board tab keeps the NOW strip and the background agents; the usage meters and Sentinel parts stay.
 - 1.3 (2026-11-17): stale means a log has had unread bytes for 30 minutes (a touched log is not work); a stale Lens kills itself (SIGKILL) so the service always starts a fresh one.
 - 1.2 (2026-11-13): names on screen are Forge, Lens, Sentinel, Motherboard (owner, 2026-10-27).
 - 1.1 (2026-11-09): a stale Lens restarts itself: on the first stale health check (every minute) it says so in the error log and exits 1, and the service starts a fresh one.
@@ -198,7 +198,7 @@ Claude writes most of the code; these keep it from drifting into a mess on a lon
 - 0.7 (2026-10-24): background agents (subagents) are followed and filed under the project they really work in (section 5b, scenario 11).
 - 0.1 (2026-10-23): first draft from the conversation: Claude Code logs only in v1, GitHub with CI, Node.js + TypeScript, SSE, SQLite, local page, Rule 1 and the guardrails.
 - 0.6 (2026-10-24): the board takes the first design's layout (header totals, NOW strip, Board, Terminal and Timeline tabs) in the readable palette (section 8).
-- 0.5 (2026-10-24): the board is built and watches a real pipeline (its journal and its agents' logs); the owner chose the look (section 8).
+- 0.5 (2026-10-24): the board is built and watches a real multi-agent run (removed in 1.4); the owner chose the look (section 8).
 - 0.4 (2026-10-23): a board per project at its own address, as many open at once as you like; a start page lists the active ones.
 - 0.3 (2026-10-23): Night run planned for version 2: all night by default, an optional ticket limit with "Start next batch", pause on usage limit.
 - 0.2 (2026-10-23): it is for any developer, not only me: install with `npx nightshift`, find the logs on any OS, a first-run screen, an optional config file, nothing leaves the computer; team board moved to the open questions.

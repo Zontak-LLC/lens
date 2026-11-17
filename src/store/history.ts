@@ -1,12 +1,14 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import type { NightEvent, RunEvent } from "../parser/index.js";
+import type { NightEvent } from "../parser/index.js";
 
 /**
  * The history: every event the watcher found, in one SQLite file, plus where each log file was read up to. The board
  * is built from events alone, so after a restart the stored events are applied again and the board is the same
- * (sessions, background agents, steps, pipelines and tickets all come from them). The ONLY place that writes to disk.
+ * (main sessions, background agents and their steps all come from them). The ONLY place that writes to disk.
+ * Rows from older versions that read workflow journals (issue 28) are skipped on replay, never applied; the 30-day
+ * prune removes them.
  *
  * Nothing lost: a file is read on from its saved offset. Nothing doubled: an event is stored under a key that names the
  * file, its identity (inode and epoch) and where its line ends, so reading a line again changes nothing.
@@ -31,9 +33,10 @@ CREATE TABLE IF NOT EXISTS files (
 );
 `;
 
-export type StoredEvent = NightEvent | RunEvent;
 export type FileState = { ino: number; epoch: number; offset: number };
 export const DEFAULT_KEEP_DAYS = 30;
+/** Rows older versions stored from workflow journals (issue 28): never applied again. */
+const JOURNAL_KINDS = new Set(["run.launched", "run.queue", "agent.started", "agent.result"]);
 const DAY_MS = 86_400_000;
 
 export class History {
@@ -48,8 +51,8 @@ export class History {
   }
 
   /** Stores one event; false when this exact line was stored before (the caller then must not apply it again). */
-  add(event: StoredEvent, key: string, nowMs = Date.now()): boolean {
-    const at = "at" in event ? Date.parse(event.at) : Number.NaN; // journal lines carry no time: use the time we saw them
+  add(event: NightEvent, key: string, nowMs = Date.now()): boolean {
+    const at = Date.parse(event.at); // a line with no time: use the time we saw it
     const ts = Number.isFinite(at) ? at : nowMs;
     const done = this.db
       .prepare("INSERT OR IGNORE INTO events (key, session_id, ts, kind, data) VALUES (?, ?, ?, ?, ?)")
@@ -57,18 +60,41 @@ export class History {
     return Number(done.changes) === 1;
   }
 
-  /** Every stored event, oldest stored first: the order they arrived in, which is the order the board needs. */
-  replay(each: (event: StoredEvent) => void): number {
+  /**
+   * Every stored event, oldest stored first: the order they arrived in, which is the order the board needs. Old
+   * pipeline rows are skipped and not counted: the journal kinds, and every step of an agent a journal started
+   * (collected first, so a step stored before its start is skipped too). Without that, such an agent's old steps
+   * would show as a background agent.
+   */
+  replay(each: (event: NightEvent) => void): number {
+    const pipeline = this.pipelineAgents();
     let n = 0;
-    for (const row of this.db.prepare("SELECT data FROM events ORDER BY id").iterate()) {
+    for (const row of this.db.prepare("SELECT kind, data FROM events ORDER BY id").iterate()) {
       try {
-        each(JSON.parse(String(row.data)) as StoredEvent);
+        if (JOURNAL_KINDS.has(String(row.kind))) continue;
+        const event = JSON.parse(String(row.data)) as NightEvent;
+        if (event.agentId && pipeline.has(event.agentId)) continue;
+        each(event);
         n++;
       } catch {
         // a damaged row is skipped, never fatal
       }
     }
     return n;
+  }
+
+  /** The agent ids of every stored `agent.started` row (a ticket's agent or a helper with no number alike). */
+  private pipelineAgents(): Set<string> {
+    const ids = new Set<string>();
+    for (const row of this.db.prepare("SELECT data FROM events WHERE kind = 'agent.started'").iterate()) {
+      try {
+        const id = (JSON.parse(String(row.data)) as { agentId?: unknown }).agentId;
+        if (typeof id === "string") ids.add(id);
+      } catch {
+        // a damaged row names no agent
+      }
+    }
+    return ids;
   }
 
   count(): number {

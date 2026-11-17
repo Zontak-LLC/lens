@@ -62,9 +62,10 @@ is made, in the same commit as the change. Rule 1 applies to every node: the rig
 - **Layout: the first design, in this palette (2026-10-24, the owner: "less boring", "looks more unique"):** a header
   of totals, a NOW strip, and tabs for Board (the assembly line with a belt under each station), Terminal and Timeline.
   It replaced the CICS / Norton Commander layout (framed areas with titles in the frame, a message line); its Key=Action
-  line stayed. The first design's eight status colours were cut to four, each with one meaning.
-- **The arithmetic is shared, not copied:** totals, the finish estimate and the timeline's hour rows live in
-  `src/web/shift.ts`, are tested there, and are sent to the page as their own source text (`Function.prototype.toString`),
+  line stayed. The first design's eight status colours were cut to four, each with one meaning. **Replaced in part
+  2026-11-17** ("Pipelines removed"): no totals, no assembly line, no Key=Action line; the header keeps the meters.
+- **The arithmetic is shared, not copied:** durations, the agent counts, the timeline's hour rows and the meters live in
+  `src/web/page-math.ts` (was `shift.ts`, with the ticket totals until 2026-11-17), are tested there, and are sent to the page as their own source text (`Function.prototype.toString`),
   so the browser runs the tested code. `tsx` (`npm run dev`) wraps named arrows in `__name(...)`; a one-line no-op
   stand-in sent before them makes that harmless.
 - **Fonts on the computer only:** the page loads nothing from the internet (no web fonts), so nothing leaves it.
@@ -91,8 +92,8 @@ is made, in the same commit as the change. Rule 1 applies to every node: the rig
 - **Each background agent is a "worker", linked to its parent session** (2026-10-24, the owner found that the board
   showed only the main session). Its log is `<session>/subagents/agent-<id>.jsonl`; the small `agent-<id>.meta.json`
   beside it holds the description it was started with, which is its name. With no description the name is the first
-  line of its task prompt. Pipeline agents (a workflow's tickets) keep their own path through the run; every other agent
-  id is a worker.
+  line of its task prompt. Pipeline agents (a workflow's tickets) kept their own path through the run; every other agent
+  id is a worker. **Replaced 2026-11-17** ("Pipelines removed"): workflow agents are not read, every agent id is a worker.
 - **Its project comes from where it works, not where it started.** A subagent's lines carry the parent's `cwd`, so that
   says nothing. Instead the parser lists the paths each tool call touches (`parser/paths.ts`: file tools' paths, a
   command's `cd` targets, `git -C` folders, any absolute or `~/` path in the command). The store maps each to its git
@@ -124,7 +125,7 @@ is made, in the same commit as the change. Rule 1 applies to every node: the rig
   shows on the board of every repository it worked in, with only the steps that worked there (`store/places.ts`), and
   its own project still lists it. Same limits as ticket 7: `npm test` after an earlier `cd` names no folder, so it
   stays at home. **Pipelines (workflow runs) stay with the project the session started in**: their tickets are not
-  split (a run is one unit).
+  split (a run is one unit). **Replaced 2026-11-17** ("Pipelines removed").
 - **A fixed project list on the start page** (`store/pinned.ts`). `~/.nightshift/projects.json` is a list of
   `{ path, name }`; it is created with four defaults when missing (Loader = `~/Projects/magsmith`, UseHourly,
   Sentinel, Lens). Pinned projects show even when idle (dimmer, after the busy ones, kept in file order). Other
@@ -133,7 +134,8 @@ is made, in the same commit as the change. Rule 1 applies to every node: the rig
   `{ "path": "~/Projects/x", "hide": true }` to the file (the file is never rewritten after it exists).
   The display name is for people (tile and board title); the board address keeps the folder name (`/magsmith`).
   Each tile shows the last active time (from the history), agents and tickets working, and the open tickets of the
-  newest pipeline run. "Busy" = a working ticket or agent, or a step in the last 10 minutes.
+  newest pipeline run. "Busy" = a working ticket or agent, or a step in the last 10 minutes. **Replaced 2026-11-17**
+  ("Pipelines removed"): a tile counts working agents only, and "busy" = a working agent or a recent step.
 - **A damaged file never stops Lens:** invalid JSON, not a list, or a line without a `path` means the defaults
   are used and one line is printed in the log (`projects.json is not usable ... using the defaults`). The file is read
   again on every push, so an edit shows without a restart. Ruled out: a settings screen (SPEC section 3.7).
@@ -179,7 +181,8 @@ is made, in the same commit as the change. Rule 1 applies to every node: the rig
   `title` is the ticket's, session's or agent's title, `ticket` a pipeline's `#7`, `role` the words main session /
   background agent / pipeline agent, `minutes` the run time in whole minutes, `idleMinutes` set when idle. Left out:
   `action` (read only, no buttons), `stage` and `finishedAt` (the spec asks for neither), and `done`, because a
-  finished agent shows as idle, as the spec says, so DONE TODAY stays empty for now.
+  finished agent shows as idle, as the spec says, so DONE TODAY stays empty for now. **Replaced in part 2026-11-17**
+  ("Pipelines removed"): no pipeline desks, so `ticket` is never sent.
 - **Why it waits goes in `steps`.** `state: "waits"` says that it waits; the contract has no reason field, so a stopped
   agent's newest step is the board's word plus the reset time (`usage_limit, resets <time>`). A question needs none:
   its newest step is already `AskUserQuestion`.
@@ -199,6 +202,7 @@ is made, in the same commit as the change. Rule 1 applies to every node: the rig
 - **A pipeline's helpers get desks too.** An agent whose journal label has no ticket number (e.g. "rank open tickets")
   is in `run.helpers`, not on a ticket, and is never a background agent. It is a pipeline desk with its label as title
   and no `ticket`; its steps and times come from its own lines (`DeskLog`), because the board keeps only its latest step.
+  **Replaced 2026-11-17** ("Pipelines removed"), as are the pipeline-desk rules above.
 
 ## Forge's Agents tile (issue 14, 2026-11-13)
 
@@ -213,13 +217,35 @@ Forge was Day Shift; the identifiers (`store/day-shift.ts`, `DayShiftAgents`) an
   desks' order: waiting first, then working, then newest.
 - **Stuck limit** (decided by the owner, 2026-11-13): `limitMinutes` is 30 for pipeline agents, because long checks
   like `npm run ci` are normal; null for main sessions and background agents, so Forge's 15 minutes apply. A
-  constant (`PIPELINE_LIMIT_MINUTES`), not a setting.
+  constant, not a setting. **Replaced 2026-11-17** ("Pipelines removed"): `limitMinutes` is always null.
 - **A working desk goes idle after 10 quiet minutes and leaves the list,** so Forge's time-based "stuck" only shows
-  for waiting agents and for pipeline agents (30 min). That is today's liveness rule, kept as it is.
+  for waiting agents. That is today's liveness rule, kept as it is.
 - **What goes out.** Only the four keys. `startedAt` is the agent's own newest line (when it last showed progress).
   `worksOn` is built from the desk's repo, ticket and title (the home folder already shown as `~`): single spaces, cut
   to 200 characters last, `agent` if empty. Titles, never prompts or a background agent's task. Forge redacts too,
   but a secret typed into a session title would still go out.
+
+## Pipelines removed (issue 28, 2026-11-17)
+
+- **Pipelines removed: Forge runs and shows them now; Lens no longer reads workflow journals, and replay skips old
+  pipeline rows (issue 28).** The owner confirmed Forge took over the pipeline view, so no screen is lost.
+  - **What went:** `parser/journal.ts` and its events, the watcher's `subagents/workflows/` folder (its journals AND
+    its agents' logs, so a workflow agent never shows as a nameless background agent), the stations floor, its belt,
+    the ticket cards and dialog, the header's ticket stats (Done, Merged, Skipped, Avg, Est. finish, On shift), the
+    arrow keys, `BoardView.run`, `ProjectRow.running` / `open`, pipeline desks on `/agents` and `/api/agents`, and
+    the 30-minute limit (`limitMinutes` is always null now). `web/shift.ts` became `web/page-math.ts` (`PAGE_MATH`).
+  - **What stayed:** main sessions, background agents, trouble (the NOW strip), Terminal, Timeline (background agents
+    only), the usage meter and Sentinel. `GET /agents` and `GET /api/agents` give the same answer for main sessions
+    and background agents as before; `test/agents-snapshot.test.ts` holds a snapshot taken on the code before the
+    removal (`test/fixtures/agents-snapshot.json`, never regenerated).
+  - **Old history rows:** no migration and no delete. `History.replay` first collects the agent ids of every stored
+    `agent.started` row (helpers too), then skips every `run.launched`, `run.queue`, `agent.started` and
+    `agent.result` row and every step of those agents, so an old pipeline agent can never come back as a ghost
+    background agent. The 30-day prune removes the rows. Accepted: if an `agent.started` row is pruned before some of
+    that agent's steps, those steps show as an old idle background agent until they are pruned too.
+  - **Mockup:** `docs/board-design/board-without-pipeline.html`.
+  - Replaces the pipeline parts of: the board layout (2026-10-24), background agents (ticket 7), projects everywhere
+    (ticket 8), Motherboard's Desks (issue 15) and Forge's Agents tile (issue 14, including its 30-minute limit).
 
 ## Stale = unread bytes; the watchdog kills itself (2026-11-17)
 

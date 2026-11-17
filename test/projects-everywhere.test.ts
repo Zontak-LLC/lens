@@ -101,12 +101,6 @@ describe("a session that works in another repository", () => {
     expect(rows.map((r) => r.project).sort()).toEqual(["demo-app", "my-app"]);
     expect(rows.find((r) => r.project === "my-app")?.lastAt).toBe(at(45));
   });
-
-  it("does not move a project's pipeline to another board", () => {
-    const b = real();
-    night(b);
-    expect(b.view("my-app").run).toBeNull();
-  });
 });
 
 describe("the fixed project list on the start page", () => {
@@ -197,20 +191,13 @@ describe("the fixed project list on the start page", () => {
     rmSync(elsewhere, { recursive: true, force: true });
   });
 
-  it("counts the open tickets of the project's newest pipeline run", () => {
+  it("counts working background agents on a tile, and no tickets (pipelines are Forge's, issue 28)", () => {
     const b = new Board();
     feed(b, [use(join(home, "Projects", "demo-app"), 40, "Bash", { command: "ls" })]);
-    b.apply({
-      kind: "run.queue",
-      runId: "wf1",
-      sessionId: SESSION,
-      tickets: [
-        { number: 1, title: "One" },
-        { number: 2, title: "Two" },
-      ],
-    });
     const tile = projectTiles(b.projects(NOW), PINNED, { home, nowMs: NOW }).find((t) => t.name === "Demo App");
-    expect(tile?.open).toBe(2);
+    expect(tile).toMatchObject({ project: "demo-app", agents: 0, active: true });
+    expect(tile).not.toHaveProperty("open");
+    expect(tile).not.toHaveProperty("running");
   });
 
   it("falls back to an empty list and says so when the file is damaged", () => {

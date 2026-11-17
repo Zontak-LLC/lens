@@ -33,8 +33,6 @@ copyShifted(
     ["desks/session.jsonl", "-work-shop-app/s-desk-1.jsonl"],
     ["desks/agent-bg1.jsonl", `${sub}/agent-bg1.jsonl`],
     ["desks/agent-bg1.meta.json", `${sub}/agent-bg1.meta.json`],
-    ["desks/journal.jsonl", `${sub}/workflows/run-1/journal.jsonl`],
-    ["desks/agent-pipe7.jsonl", `${sub}/workflows/run-1/agent-pipe7.jsonl`],
   ],
   60_000,
 );

@@ -19,37 +19,37 @@ before changing anything; update both in the same commit when a choice changes.
 - `src/store/`: the board (state from events) and `history.ts`, the SQLite history (`node:sqlite`): every event under a
   key `<file>#<inode>.<epoch>@<line end>.<n>` (`INSERT OR IGNORE`, so a line read twice is stored once and not
   applied twice), plus each file's saved offset. The ONLY place that writes to disk. `src/engine.ts` wires it: replay
-  the stored events into the `Board`, prune (30 days, whole sessions, hourly), then `watchLogs` with `resume` and `onRead`.
+  the stored events into the `Board` (rows an older Lens stored from workflow runs are skipped, issue 28), prune (30 days, whole sessions, hourly), then `watchLogs` with `resume` and `onRead`.
   A file that was replaced (new inode) or cut short gets a new `epoch`, so its lines are new, not repeats.
 - `src/server/`: `/events` (Server-Sent Events, one `event: <kind>` frame per event), `/health` (the engine's
   `health()`: `lastLineAt`, `lastChangeAt`, `unreadSince`, 503 when stale), later `/state`; binds
   127.0.0.1 only and answers only a `Host` of `127.0.0.1:<port>` or `localhost:<port>` (DNS rebinding), no CORS;
   a page that stops reading is dropped past 1 MB waiting. `res.write()` there is a network write, which the
   disk-write rule allows. The terminal view prints control characters from logs as `�` (no escape injection).
-- `src/web/`: the page, sent as text by the server (`page.ts`, `style.ts`; one script = `client-start.ts` + `shift.ts`
-  (pure arithmetic, tested, sent as its own source) + `client-board.ts` + `client-end.ts`). Tabs: Board, Terminal, Timeline. It asks the server for nothing: `/events?project=<name>` pushes the whole board (`event: board`), `?project=`
-  the project list. Every value from the logs is set with `textContent`. No web fonts or other outside loads.
-- Pipelines: the watcher also follows `<session>/subagents/workflows/<run>/journal.jsonl` (read whole: the run's ticket
-  list, parsed by `parser/journal.ts`) and each `agent-*.jsonl` (its steps carry `agentId`). `store/board.ts` (`Board`)
-  turns them into stations: a checking step (`npm run ci`, playwright, ...) means Checking; a result means Done or
-  Skipped (`skipped`, `blocked`, ...). The CLI adds the repo name (`store/repo.ts`, from `.git/config`) and shows the
-  home folder as `~`.
+- `src/web/`: the page, sent as text by the server (`page.ts`, `style.ts`; one script = `client-start.ts` +
+  `page-math.ts` (`PAGE_MATH`: pure arithmetic, tested, sent as its own source) + the Sentinel client
+  (`watch-view.ts`, `client-watch.ts`) + `client-end.ts`). Tabs: Board (NOW strip, background agents), Terminal,
+  Timeline. It asks the server for nothing: `/events?project=<name>` pushes the whole board (`event: board`), `?project=`
+  the project list. Every value from the logs is set with `textContent`. No web fonts or other outside loads. The CLI
+  adds the repo name (`store/repo.ts`, from `.git/config`) and shows the home folder as `~`.
 - Background agents (ticket 7): the watcher also follows `<session>/subagents/agent-*.jsonl` and reads each
-  `agent-*.meta.json` (its description; `parseAgentMeta`). The parser adds `paths` to `tool.use` (`parser/paths.ts`),
-  `agent.task`, `agent.title` and `turn.end`. `store/workers.ts` keeps one worker per agent id that is not a pipeline
-  agent and files it by the repository most of its paths belong to (`store/root.ts`, worktree = its main repo); `Board`
+  `agent-*.meta.json` (its description; `parseAgentMeta`). Workflow runs under `<session>/subagents/workflows/` are not
+  followed: Forge runs and shows them (issue 28). The parser adds `paths` to `tool.use` (`parser/paths.ts`),
+  `agent.task`, `agent.title` and `turn.end`. `store/workers.ts` keeps one worker per agent id (every agent step goes
+  there) and files it by the repository most of its paths belong to (`store/root.ts`, worktree = its main repo); `Board`
   exposes `view().agents`, `projects()[].agents` and `agentLabel()` (the terminal's tag). See decisions.md.
 - Projects everywhere (ticket 8): `store/places.ts` files each main-session step by the repositories its paths belong to
   (a session shows on every repo it works in); `store/pinned.ts` reads `~/.nightshift/projects.json` and builds the start
   page tiles (pinned always, recent repos under `~/Projects` added, idle dimmer). See decisions.md.
 - Trouble (ticket 5): `parser/trouble.ts` turns Claude Code's `isApiErrorMessage` lines into `session.trouble` (reason,
-  `resetsAt`, limit type); the board keeps it on the session or the agent's ticket until the next real step and lists it
-  as `alerts` in the view; the page's NOW strip shows the newest one in amber; a late step of a finished ticket only fills in its times.
+  `resetsAt`, limit type); the board keeps it on the session until the next real step and lists it as `alerts` in the
+  view; the page's NOW strip shows the newest one in amber. A background agent's own trouble stays on its desk until its
+  next real step.
 - Usage meter: `src/meter.ts` reads `~/.claude/usage-now.json` (`parseMeter`, `startMeter` polls every 30 s; read
-  only); the CLI adds it to each board payload as `meter`; `meterView` in `web/shift.ts` (tested, sent to the page)
+  only); the CLI adds it to each board payload as `meter`; `meterView` in `web/page-math.ts` (tested, sent to the page)
   makes the segments, levels (amber 75, red 90) and the stale flag (15 min); `server.refresh()` re-pushes every 30 s.
 - Sentinel link (Sentinel was Night Watch; identifiers keep the old name): `src/watch/` follows the sister project's `/events` (read only, localhost only, reconnects; `model.ts` reads its state defensively) and `view.ts` builds the board/tile payload; `store/pinned.ts` maps a project to a site (`watchSite`); the page parts are `web/client-watch.ts` and the tested `web/watch-view.ts`. See decisions.md.
-- Desks (issue 15): `GET /agents` returns every live agent (main sessions, background agents, pipeline agents) as
+- Desks (issue 15): `GET /agents` returns every live agent (main sessions and background agents) as
   board-kit's `Agents` part, for Motherboard to pull (read only, same Host check, no CORS). `parser/usage.ts` reads
   `message.model` and `message.usage` into `turn.usage` (the store keeps the last line per `message.id`, so a message
   split over lines counts once); `store/desks.ts` (`DeskLog`, `desksOf`, the only file that knows board-kit's contract) adds

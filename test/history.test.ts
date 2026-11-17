@@ -3,7 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { startEngine } from "../src/engine.js";
-import { History } from "../src/store/index.js";
+import type { NightEvent } from "../src/parser/index.js";
+import { Board, History } from "../src/store/index.js";
 import { advance, START } from "../src/watcher/index.js";
 
 const line = (o: Record<string, unknown>) =>
@@ -173,5 +174,67 @@ describe("a developer restarts Night Shift", () => {
     const engine = startEngine({ root, dbPath: join(dir, "logs"), everyMs: 40, onError: (e) => errors.push(e) }); // a folder
     stop = engine.stop;
     expect(String(errors[0])).toContain("history unavailable");
+  });
+});
+
+// Issue 28: a history written by an older Lens still holds workflow journal rows and the steps of the agents they started.
+describe("a developer upgrades Lens over a history with old pipeline rows", () => {
+  const NOW = Date.parse("2026-10-29T09:05:00.000Z");
+  const t = (mmss: string) => `2026-10-29T09:${mmss}.000Z`;
+  const step = (id: string, at: string, agentId?: string): NightEvent => ({
+    kind: "tool.use",
+    at,
+    sessionId: "s-main",
+    ...(agentId ? { agentId } : {}),
+    toolUseId: id,
+    tool: "Edit",
+    summary: `Editing ${id}.ts`,
+    paths: [`/work/shop-app/${id}.ts`],
+  });
+  /** A row as an older Lens stored it from a workflow journal (no `at`: journal lines carry no time). */
+  const old = (row: Record<string, unknown>) => ({ sessionId: "s-main", ...row }) as unknown as NightEvent;
+  const trouble: NightEvent = {
+    kind: "session.trouble",
+    at: t("02:30"),
+    sessionId: "s-main",
+    agentId: "pipe7",
+    reason: "usage_limit",
+    resetsAt: null,
+    limitType: "five_hour",
+    text: "You've hit your session limit",
+  };
+  const rows: NightEvent[] = [
+    step("p0", t("01:00"), "pipe7"), // a step stored before its agent's start
+    old({ kind: "run.launched", runId: "wf1" }),
+    old({ kind: "run.queue", runId: "wf1", tickets: [{ number: 3, title: "Three" }] }),
+    old({ kind: "agent.started", runId: "wf1", agentId: "pipe7", label: "#3 Three", phase: "Build", number: 3 }),
+    old({ kind: "agent.started", runId: "wf1", agentId: "help1", label: "rank tickets", phase: "Plan", number: null }),
+    step("p1", t("02:00"), "pipe7"),
+    trouble,
+    step("h1", t("03:00"), "help1"),
+    old({ kind: "agent.result", runId: "wf1", agentId: "pipe7", number: 3, status: "merged", pr: null, summary: null }),
+    { kind: "session.seen", at: t("00:00"), sessionId: "s-main", cwd: "/work/shop-app", branch: "main" },
+    step("m1", t("04:00")),
+    step("b1", t("04:10"), "bg1"),
+  ];
+
+  it("replays only the main session and the background agent, and keeps every row for the prune", () => {
+    const history = new History(":memory:");
+    for (const [i, row] of rows.entries()) history.add(row, `k${i}`, NOW);
+    const board = new Board(() => null);
+    let replayed = 0;
+    expect(() => {
+      replayed = history.replay((e) => board.apply(e));
+    }).not.toThrow();
+    expect(replayed).toBe(3); // session.seen, the main session's step and bg1's step: skipped rows are not counted
+    expect(history.count()).toBe(rows.length); // nothing deleted: the 30-day prune removes them
+    expect(board.desks(NOW, "").list?.map((d) => d.id)).toEqual(["agent:bg1", "main:s-main"]);
+    expect(board.running(NOW, "").agents.map((a) => a.role)).toEqual(["background agent", "main session"]);
+    expect(board.view("shop-app", NOW).agents.map((a) => a.agentId)).toEqual(["bg1"]);
+    expect(board.projects(NOW)).toEqual([
+      { project: "shop-app", folder: "/work/shop-app", lastAt: t("04:10"), agents: 1 },
+    ]);
+    expect(board.view("shop-app", NOW).alerts).toEqual([]); // pipe7's old limit is not the session's
+    history.close();
   });
 });

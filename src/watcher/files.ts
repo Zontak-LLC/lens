@@ -8,7 +8,6 @@ import { join } from "node:path";
 
 export type LogFile = {
   path: string;
-  journal: { runId: string; sessionId: string } | null;
   /** A background agent's `agent-<id>.meta.json`: a small JSON file with the description it was started with. */
   meta?: { sessionId: string; agentId: string };
 };
@@ -41,27 +40,17 @@ const jsonl = (dir: string, report: Report): string[] =>
     .filter((f) => f.endsWith(".jsonl"))
     .map((f) => join(dir, f));
 
-/** The workflows of one session: each run's journal FIRST (so its agents are known), then the agents' own logs. */
-function workflowLogs(sessionDir: string, sessionId: string, report: Report): LogFile[] {
-  const out: LogFile[] = [];
-  const workflows = join(sessionDir, "subagents", "workflows");
-  for (const runId of names(workflows, report)) {
-    const files = jsonl(join(workflows, runId), report);
-    const journal = files.find((f) => f.endsWith("journal.jsonl"));
-    if (journal) out.push({ path: journal, journal: { runId, sessionId } });
-    for (const f of files) if (f !== journal) out.push({ path: f, journal: null });
-  }
-  return out;
-}
-
-/** One session folder's logs: its workflows, its background agents' logs and their `.meta.json` descriptions. */
+/**
+ * One session folder's logs: its background agents' logs and their `.meta.json` descriptions. Workflow runs under
+ * `subagents/workflows/` are not followed (Forge runs and shows pipelines, issue 28).
+ */
 function sessionLogs(path: string, sessionId: string, report: Report): LogFile[] {
-  const out = workflowLogs(path, sessionId, report);
+  const out: LogFile[] = [];
   const subagents = join(path, "subagents");
-  for (const f of jsonl(subagents, report)) out.push({ path: f, journal: null });
+  for (const f of jsonl(subagents, report)) out.push({ path: f });
   for (const f of names(subagents, report)) {
     const agentId = /^agent-(.+)\.meta\.json$/.exec(f)?.[1];
-    if (agentId) out.push({ path: join(subagents, f), journal: null, meta: { sessionId, agentId } });
+    if (agentId) out.push({ path: join(subagents, f), meta: { sessionId, agentId } });
   }
   return out;
 }
@@ -76,7 +65,7 @@ export function logFiles(root: string, report: Report = () => {}): LogFile[] | n
     const dir = join(root, project.name);
     for (const entry of entries(dir, report) ?? []) {
       const path = join(dir, entry.name);
-      if (entry.isFile() && entry.name.endsWith(".jsonl")) out.push({ path, journal: null });
+      if (entry.isFile() && entry.name.endsWith(".jsonl")) out.push({ path });
       else if (entry.isDirectory()) out.push(...sessionLogs(path, entry.name, report));
     }
   }

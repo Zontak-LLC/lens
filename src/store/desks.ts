@@ -5,7 +5,7 @@ import { type Trouble, troubleFrom } from "./trouble.js";
 import { KEEP_MS, QUIET_MS } from "./workers.js";
 
 /**
- * Desks: one per live agent on this computer (main sessions, background agents, pipeline agents), served read only at
+ * Desks: one per live agent on this computer (main sessions and background agents), served read only at
  * `GET /agents` for Motherboard's Agents tab. `Desk` and `DesksView` are board-kit's `Agent` and `Agents` at commit
  * 0c60024 (`src/contract.ts`, copied to test/fixtures/); this file is the only place that knows the mapping.
  * The contract has no field for tokens or for why an agent waits. Tokens stay in the store (`DeskTokens`) until board-kit
@@ -40,17 +40,15 @@ export type Mark = {
   tokens: DeskTokens | null;
   /** What each message id counts for: a later line of it, or a log read again from the top, replaces its count. */
   counted: Map<string, DeskTokens>;
-  /** The folder this agent's own lines name: where a pipeline agent works when its session's log was not read. */
-  cwd: string;
   /** The `AskUserQuestion` call still waiting for its answer. */
   asking: string | null;
-  /** A background agent's own trouble (pipeline tickets and main sessions keep theirs on the board). */
+  /** A background agent's own trouble (main sessions keep theirs on the board). */
   trouble: Trouble | null;
   /** A main session's steps and its first event's time (the board keeps only its latest step per project). */
   steps: number;
   recent: string[];
   startedAt: string | null;
-  /** This agent's own newest event (a pipeline run's `lastAt` is the newest of all its agents). */
+  /** This agent's own newest event. */
   lastAt: string;
 };
 
@@ -99,7 +97,6 @@ export class DeskLog {
       model: null,
       tokens: null,
       counted: new Map(),
-      cwd: "",
       asking: null,
       trouble: null,
       steps: 0,
@@ -113,7 +110,6 @@ export class DeskLog {
       if (e.at > m.lastAt) m.lastAt = e.at;
     }
     if (e.kind === "turn.usage") addUsage(m, e);
-    else if (e.kind === "session.seen") m.cwd = e.cwd;
     else if (e.kind === "session.trouble") m.trouble = troubleFrom(e);
     else if (e.kind === "tool.result" && e.toolUseId === m.asking) m.asking = null;
     else if (e.kind === "reply" || e.kind === "prompt") m.trouble = null;

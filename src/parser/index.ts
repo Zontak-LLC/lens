@@ -1,12 +1,4 @@
 // The parser layer: a Claude Code log line -> Lens events. Pure; no file system, no network.
 export type { NightEvent, ParseResult } from "./events.js";
-export {
-  numberInLabel,
-  type Place,
-  parseJournalLine,
-  type QueuedTicket,
-  type RunEvent,
-  titleInLabel,
-} from "./journal.js";
 export { parseAgentMeta, parseLine, parseLog } from "./line.js";
 export { toolSummary } from "./summary.js";

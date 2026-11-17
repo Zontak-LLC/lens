@@ -2,8 +2,8 @@ import { appendFileSync, mkdirSync, mkdtempSync, renameSync, rmSync, utimesSync,
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import type { NightEvent, RunEvent } from "../src/parser/index.js";
-import { advance, START, startAt, watchLogs } from "../src/watcher/index.js";
+import type { NightEvent } from "../src/parser/index.js";
+import { advance, logFiles, START, startAt, watchLogs } from "../src/watcher/index.js";
 
 const line = (o: Record<string, unknown>) =>
   `${JSON.stringify({ sessionId: "s1", cwd: "/work/demo-app", gitBranch: "main", timestamp: "2026-10-23T22:00:00.000Z", ...o })}\n`;
@@ -150,37 +150,33 @@ describe("a developer runs Claude Code while Night Shift watches", () => {
     expect(errors).toHaveLength(1);
   });
 
-  it("follows a pipeline: its journal (always from the start) and each agent's own log, tagged with the agent", async () => {
+  it("leaves a workflow run alone (Forge shows pipelines), and follows the background agent next to it", async () => {
     dir = mkdtempSync(join(tmpdir(), "nightshift-"));
-    const run = join(dir, "demo-app", "s-demo-1", "subagents", "workflows", "wf_demo");
+    const subagents = join(dir, "demo-app", "s-demo-1", "subagents");
+    const run = join(subagents, "workflows", "wf_demo");
     mkdirSync(run, { recursive: true });
     writeFileSync(join(dir, "demo-app", "s-demo-1.jsonl"), toolUse("t0", "main.ts"));
     writeFileSync(
       join(run, "journal.jsonl"),
       `${JSON.stringify({ type: "started", agentId: "agent-13", label: "#13 Dark mode toggle" })}\n`,
     );
-    const old = new Date(Date.now() - 60 * 60_000);
-    utimesSync(join(run, "journal.jsonl"), old, old); // even a quiet journal is read whole: it is the run's ticket list
-    writeFileSync(
-      join(run, "agent-agent-13.jsonl"),
+    const agentStep = (agentId: string, file: string) =>
       line({
         type: "assistant",
-        agentId: "agent-13",
+        agentId,
         isSidechain: true,
-        message: {
-          content: [{ type: "tool_use", id: "x1", name: "Edit", input: { file_path: "/work/demo-app/header.tsx" } }],
-        },
-      }),
-    );
-    const runs: RunEvent[] = [];
-    const steps: NightEvent[] = [];
-    stop = watchLogs({ root: dir, everyMs: 50, onEvent: (e) => steps.push(e), onRun: (e) => runs.push(e) });
+        message: { content: [{ type: "tool_use", id: agentId, name: "Edit", input: { file_path: file } }] },
+      });
+    writeFileSync(join(run, "agent-agent-13.jsonl"), agentStep("agent-13", "/work/demo-app/header.tsx"));
+    writeFileSync(join(subagents, "agent-bg1.jsonl"), agentStep("bg1", "/work/demo-app/guide.md"));
     expect(
-      await until(() => runs.length > 0 && steps.some((e) => e.kind === "tool.use" && e.agentId === "agent-13")),
-    ).toBe(true);
-    expect(runs[0]).toMatchObject({ kind: "agent.started", runId: "wf_demo", sessionId: "s-demo-1", number: 13 });
-    expect(steps.find((e) => e.kind === "tool.use" && e.agentId === "agent-13")).toMatchObject({
-      summary: "Editing header.tsx",
-    });
+      logFiles(dir)
+        ?.map((f) => f.path.slice(dir.length))
+        .sort(),
+    ).toEqual(["/demo-app/s-demo-1.jsonl", "/demo-app/s-demo-1/subagents/agent-bg1.jsonl"]);
+    const steps: NightEvent[] = [];
+    stop = watchLogs({ root: dir, everyMs: 50, onEvent: (e) => steps.push(e) });
+    expect(await until(() => steps.some((e) => e.kind === "tool.use" && e.agentId === "bg1"))).toBe(true);
+    expect(steps.some((e) => e.agentId === "agent-13")).toBe(false);
   });
 });
