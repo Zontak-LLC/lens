@@ -1,7 +1,7 @@
 // The engine: the watcher feeding the history and the board. The CLI adds the server and the terminal on top.
 import type { NightEvent, RunEvent } from "./parser/index.js";
 import { Board, DEFAULT_KEEP_DAYS, History } from "./store/index.js";
-import { type Health, healthOf, newestChange, watchLogs } from "./watcher/index.js";
+import { backlogTracker, type Health, healthOf, newestChange, watchLogs } from "./watcher/index.js";
 
 export type EngineOptions = {
   /** Claude Code's projects folder. */
@@ -10,7 +10,7 @@ export type EngineOptions = {
   dbPath: string;
   keepDays?: number;
   everyMs?: number;
-  /** No line read for this long while logs changed = stale (default 30 minutes). */
+  /** A log with bytes left unread (at the same read place) for this long = stale (default 30 minutes). */
   staleMs?: number;
   /** A new event (never one seen before, never one replayed from the history). */
   onNew?: (event: NightEvent | RunEvent) => void;
@@ -21,6 +21,8 @@ export type Engine = {
   history: History;
   /** For `/health`: when a line was last read, and whether Lens has fallen behind the logs. */
   health: (nowMs?: number) => Health;
+  /** The log whose unread bytes waited longest at the last health check, or null (for the watchdog's error line). */
+  unread: () => { path: string; sinceMs: number } | null;
   stop: () => void;
 };
 
@@ -32,7 +34,8 @@ const HOUR_MS = 3_600_000;
  */
 export function startEngine(options: EngineOptions): Engine {
   const { root, dbPath, keepDays = DEFAULT_KEEP_DAYS, everyMs, staleMs, onNew, onError } = options;
-  const startedMs = Date.now();
+  const backlog = backlogTracker();
+  let unread: { path: string; sinceMs: number } | null = null;
   let lastLineMs: number | null = null;
   let history: History;
   try {
@@ -61,6 +64,7 @@ export function startEngine(options: EngineOptions): Engine {
     onLines: () => {
       lastLineMs = Date.now();
     },
+    onPlace: backlog.place,
     ...(onError ? { onError } : {}),
   });
   const pruner = setInterval(() => history.prune(keepDays), HOUR_MS);
@@ -68,8 +72,18 @@ export function startEngine(options: EngineOptions): Engine {
   return {
     board,
     history,
-    health: (nowMs = Date.now()) =>
-      healthOf({ startedMs, lastLineMs, newestChangeMs: newestChange(root), nowMs, ...(staleMs ? { staleMs } : {}) }),
+    health: (nowMs = Date.now()) => {
+      unread = backlog.check(nowMs);
+      // newestChange only fills `lastChangeAt` for monitors: a touched log is not work, so it decides nothing.
+      return healthOf({
+        lastLineMs,
+        newestChangeMs: newestChange(root),
+        unreadSinceMs: unread?.sinceMs ?? null,
+        nowMs,
+        ...(staleMs ? { staleMs } : {}),
+      });
+    },
+    unread: () => unread,
     stop: () => {
       stopWatching();
       clearInterval(pruner);

@@ -123,14 +123,14 @@ Claude Code log files ──► Watcher ──► Parser ──► Event store (
 
 The board never looks busy while nothing happens. The NOW strip turns amber and says it in words, with the next step:
 
-| What happens                         | What the board says                                                                                                                                                      |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Usage limit                          | "Paused: usage limit since 21:40 · resets 22:40 (in 58 min). Nothing is lost; work continues by itself."                                                                 |
-| Connection lost, computer slept      | "Waiting on Claude: connection trouble since 21:40."                                                                                                                     |
-| Login expired                        | "Logged out: run /login in Claude Code since 21:40."                                                                                                                     |
-| A ticket with no step for 30 minutes | "Quiet since 21:40" on its card                                                                                                                                          |
-| The page loses Lens                  | The status light turns amber: "RECONNECTING…"                                                                                                                            |
-| Lens itself stops reading the logs   | `GET /health` answers 503 `{"ok":false,"status":"stale","lastLineAt":…}`: no line read for 30 minutes while a log changed; Lens then exits 1 and the service restarts it |
+| What happens                         | What the board says                                                                                                                                                                                                                                                                        |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Usage limit                          | "Paused: usage limit since 21:40 · resets 22:40 (in 58 min). Nothing is lost; work continues by itself."                                                                                                                                                                                   |
+| Connection lost, computer slept      | "Waiting on Claude: connection trouble since 21:40."                                                                                                                                                                                                                                       |
+| Login expired                        | "Logged out: run /login in Claude Code since 21:40."                                                                                                                                                                                                                                       |
+| A ticket with no step for 30 minutes | "Quiet since 21:40" on its card                                                                                                                                                                                                                                                            |
+| The page loses Lens                  | The status light turns amber: "RECONNECTING…"                                                                                                                                                                                                                                              |
+| Lens itself stops reading the logs   | `GET /health` answers 503 `{"ok":false,"status":"stale","lastLineAt":…,"unreadSince":…}`: a log has had bytes Lens has not read for 30 minutes (a log that is only touched is not work); Lens then writes one line naming the file and kills itself (SIGKILL), and the service restarts it |
 
 A paused ticket says so on its card. Each notice clears by itself at the next real step.
 
@@ -189,9 +189,10 @@ Claude writes most of the code; these keep it from drifting into a mess on a lon
 
 ## 13. Change log
 
+- 1.3 (2026-11-17): stale means a log has had unread bytes for 30 minutes (a touched log is not work); a stale Lens kills itself (SIGKILL) so the service always starts a fresh one.
 - 1.2 (2026-11-13): names on screen are Forge, Lens, Sentinel, Motherboard (owner, 2026-10-27).
 - 1.1 (2026-11-09): a stale Lens restarts itself: on the first stale health check (every minute) it says so in the error log and exits 1, and the service starts a fresh one.
-- 1.0 (2026-11-07): `/health` tells the truth: the time of the last line read, and "stale" (503) when no line was read for 30 minutes while logs changed. A quiet computer is not stale. The watcher reads a huge log a slice at a time and never lets one unreadable or stuck file stop the others.
+- 1.0 (2026-11-07): `/health` tells the truth: the time of the last line read, and "stale" (503) when no line was read for 30 minutes while there was work (since 1.3: unread bytes). A quiet computer is not stale. The watcher reads a huge log a slice at a time and never lets one unreadable or stuck file stop the others.
 - 0.9 (2026-10-24): the link to Sentinel (read only): a Live site strip, a From Sentinel lane of incidents on the board of a watched project, a site light on its start page tile, and a `→ Sentinel` link (decision in decisions.md).
 - 0.8 (2026-10-24): a session shows on every repository it works in (steps split by where they work), and the start page lists a fixed project list from `~/.nightshift/projects.json` (idle ones dimmer), plus recently used repos under `~/Projects`.
 - 0.7 (2026-10-24): background agents (subagents) are followed and filed under the project they really work in (section 5b, scenario 11).
