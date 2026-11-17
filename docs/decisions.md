@@ -113,7 +113,8 @@ is made, in the same commit as the change. Rule 1 applies to every node: the rig
 - **Usage meter in the header (2026-10-24, the owner).** Read from `~/.claude/usage-now.json`, polled every 30 s, shown as
   two 10-segment bars; amber from 75% and red from 90% (the owner's warning line); grey "stale" after 15 minutes;
   hidden without the file. The page works out staleness with its own clock, so a file that stops updating turns grey
-  without any new push.
+  without any new push. **Replaced 2026-11-17: Motherboard owns this** ("Sentinel link and usage meter move to
+  Motherboard").
 
 ## Projects everywhere (ticket 8, 2026-10-24)
 
@@ -158,6 +159,7 @@ is made, in the same commit as the change. Rule 1 applies to every node: the rig
     not move left to right. Open ones (any severity, colour by severity) and the five newest resolved ones. The advice is
     the fix Sentinel proposes, else the first triage step. "Healed by" needs a fix attempt with the verdict "healed".
   - Ruled out: buttons that act on Sentinel (resolve, retriage, open an issue). Those stay in Sentinel.
+  - **Replaced 2026-11-17: Motherboard owns this** ("Sentinel link and usage meter move to Motherboard").
 
 ## Motherboard's Desks (issue 15, 2026-10-29)
 
@@ -246,6 +248,27 @@ Forge was Day Shift; the identifiers (`store/day-shift.ts`, `DayShiftAgents`) an
   - **Mockup:** `docs/board-design/board-without-pipeline.html`.
   - Replaces the pipeline parts of: the board layout (2026-10-24), background agents (ticket 7), projects everywhere
     (ticket 8), Motherboard's Desks (issue 15) and Forge's Agents tile (issue 14, including its 30-minute limit).
+
+## Sentinel link and usage meter move to Motherboard (2026-11-17, Fable deep review, issue 27)
+
+- **Why.** Motherboard now shows the usage meter and Sentinel's sites, so Lens showing them too was a second copy to
+  keep alive. Lens gets smaller and does one job: what the Claude Code agents are doing.
+- **What went:** `src/watch/` (the client that followed Sentinel's `/events`), `src/meter.ts` (the reader of
+  `~/.claude/usage-now.json`), `web/client-watch.ts`, `web/watch-view.ts`, `meterView` in `web/page-math.ts`, the
+  header's 5 h / Week meter, the `→ Sentinel` link, the Live site strip, the From Sentinel lane, the tiles' site light,
+  the `nightwatch-url` meta tag, the `NIGHTSHIFT_USAGE` and `NIGHTSHIFT_NIGHTWATCH_URL` settings, the board payload's
+  `meter` and `watch` keys and the tiles' `watchSite` and `watch` keys, and `scripts/fill-watch-sites.mjs`.
+- **What stayed:** trouble alerts. A usage-limit pause still shows "Paused: usage limit" in amber on the NOW strip;
+  only the usage-file meter went. The CLI still re-pushes the open pages every 30 s, because a quiet project's tile
+  must dim without any new event.
+- **Old project lists:** a `projects.json` line that still has `watchSite` loads with no warning; the key is ignored.
+  The owner's file is not rewritten.
+- **`GET /agents` and `GET /api/agents` are unchanged.** `test/agents-unchanged.test.ts` compares both answers with
+  golden files captured on the code before the removal (`test/fixtures/agents-route-snapshot.json`,
+  `test/fixtures/api-agents-snapshot.json`; `test/fixtures/agents-snapshot.json` is the older board snapshot of issue
+  28, so the new one has its own name).
+- **Mockup:** `docs/board-design/no-sentinel-no-meter.html`.
+- Replaces: "Usage meter in the header" (2026-10-24) and "The link to Sentinel" (under Projects everywhere).
 
 ## Stale = unread bytes; the watchdog kills itself (2026-11-17)
 

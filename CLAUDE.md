@@ -27,8 +27,9 @@ before changing anything; update both in the same commit when a choice changes.
   a page that stops reading is dropped past 1 MB waiting. `res.write()` there is a network write, which the
   disk-write rule allows. The terminal view prints control characters from logs as `�` (no escape injection).
 - `src/web/`: the page, sent as text by the server (`page.ts`, `style.ts`; one script = `client-start.ts` +
-  `page-math.ts` (`PAGE_MATH`: pure arithmetic, tested, sent as its own source) + the Sentinel client
-  (`watch-view.ts`, `client-watch.ts`) + `client-end.ts`). Tabs: Board (NOW strip, background agents), Terminal,
+  `page-math.ts` (`PAGE_MATH`: pure arithmetic, tested, sent as its own source) + `client-end.ts`). The usage
+  meter and the Sentinel link are Motherboard's (issue 27, decisions.md); the CLI re-pushes the open pages every 30 s
+  so a quiet project's tile dims. Tabs: Board (NOW strip, background agents), Terminal,
   Timeline. It asks the server for nothing: `/events?project=<name>` pushes the whole board (`event: board`), `?project=`
   the project list. Every value from the logs is set with `textContent`. No web fonts or other outside loads. The CLI
   adds the repo name (`store/repo.ts`, from `.git/config`) and shows the home folder as `~`.
@@ -45,10 +46,6 @@ before changing anything; update both in the same commit when a choice changes.
   `resetsAt`, limit type); the board keeps it on the session until the next real step and lists it as `alerts` in the
   view; the page's NOW strip shows the newest one in amber. A background agent's own trouble stays on its desk until its
   next real step.
-- Usage meter: `src/meter.ts` reads `~/.claude/usage-now.json` (`parseMeter`, `startMeter` polls every 30 s; read
-  only); the CLI adds it to each board payload as `meter`; `meterView` in `web/page-math.ts` (tested, sent to the page)
-  makes the segments, levels (amber 75, red 90) and the stale flag (15 min); `server.refresh()` re-pushes every 30 s.
-- Sentinel link (Sentinel was Night Watch; identifiers keep the old name): `src/watch/` follows the sister project's `/events` (read only, localhost only, reconnects; `model.ts` reads its state defensively) and `view.ts` builds the board/tile payload; `store/pinned.ts` maps a project to a site (`watchSite`); the page parts are `web/client-watch.ts` and the tested `web/watch-view.ts`. See decisions.md.
 - Desks (issue 15): `GET /agents` returns every live agent (main sessions and background agents) as
   board-kit's `Agents` part, for Motherboard to pull (read only, same Host check, no CORS). `parser/usage.ts` reads
   `message.model` and `message.usage` into `turn.usage` (the store keeps the last line per `message.id`, so a message

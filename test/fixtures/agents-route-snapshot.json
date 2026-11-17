@@ -1,0 +1,32 @@
+{
+  "status": 200,
+  "contentType": "application/json",
+  "body": {
+    "list": [
+      {
+        "id": "agent:bg1",
+        "title": "Docs: coupon field",
+        "role": "background agent",
+        "project": "docs-site",
+        "model": "claude-sonnet-5-5",
+        "state": "waits",
+        "steps": ["Reading guide.md", "Editing guide.md", "AskUserQuestion"],
+        "stepCount": 3,
+        "costUsd": null,
+        "minutes": 4
+      },
+      {
+        "id": "main:s-desk-1",
+        "title": "Add a coupon field to the cart",
+        "role": "main session",
+        "project": "shop-app",
+        "model": "claude-opus-5-5",
+        "state": "working",
+        "steps": ["Searching for coupon", "Editing src/cart.ts", "Run the tests"],
+        "stepCount": 4,
+        "costUsd": null,
+        "minutes": 5
+      }
+    ]
+  }
+}

@@ -21,8 +21,6 @@ export type BoardSource = {
   running?: () => unknown;
   /** Is Lens keeping up with the logs? `ok: false` answers `/health` with 503 (a monitor sees it at once). */
   health?: () => { ok: boolean };
-  /** Where Sentinel's page is, for the "→ Sentinel" links. */
-  watchUrl?: string;
 };
 
 /** Boards are pushed at most this often, so a burst of log lines is one redraw. */
@@ -113,9 +111,7 @@ export function startServer(port: number, source?: BoardSource): Promise<NightSe
       return;
     }
     if (req.method === "GET" && /^\/[^/]*$/.test(url.pathname) && url.pathname !== "/favicon.ico") {
-      res
-        .writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" })
-        .end(boardPage(source?.watchUrl));
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" }).end(boardPage());
       return;
     }
     res.writeHead(404, { "content-type": "text/plain" }).end("Not found");

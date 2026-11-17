@@ -188,6 +188,7 @@ Claude writes most of the code; these keep it from drifting into a mess on a lon
 
 ## 13. Change log
 
+- 1.5 (2026-11-17): Lens no longer shows the usage meter or links to Sentinel; Motherboard owns both (decisions.md).
 - 1.4 (2026-11-17): Lens no longer follows multi-agent workflow runs or draws their ticket floor; Forge runs and shows them (issue 28). The Board tab keeps the NOW strip and the background agents; the usage meters and Sentinel parts stay.
 - 1.3 (2026-11-17): stale means a log has had unread bytes for 30 minutes (a touched log is not work); a stale Lens kills itself (SIGKILL) so the service always starts a fresh one.
 - 1.2 (2026-11-13): names on screen are Forge, Lens, Sentinel, Motherboard (owner, 2026-10-27).
