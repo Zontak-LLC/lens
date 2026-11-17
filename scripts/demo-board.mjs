@@ -42,15 +42,11 @@ const pinned = [
   { path: "/work/shop-app", name: "Shop App" },
 ];
 writeFileSync(join(data, "projects.json"), `${JSON.stringify(pinned, null, 2)}\n`);
-const usage = join(base, "usage-now.json");
-const resetsAt = Math.round(Date.now() / 1000) + 2 * 3600;
-const meter = { five_hour: 31, seven_day: 52, five_hour_resets_at: resetsAt, updated: new Date().toISOString() };
-writeFileSync(usage, JSON.stringify(meter));
 
 const lens = spawn(process.execPath, ["--import", "tsx", join(REPO, "src", "cli.ts")], {
   cwd: REPO,
   stdio: "inherit",
-  env: { ...process.env, NIGHTSHIFT_LOGS: logs, NIGHTSHIFT_DATA: data, NIGHTSHIFT_USAGE: usage },
+  env: { ...process.env, NIGHTSHIFT_LOGS: logs, NIGHTSHIFT_DATA: data },
 });
 const cleanUp = () => rmSync(base, { recursive: true, force: true });
 lens.on("exit", (code) => {

@@ -1,5 +1,5 @@
 /**
- * The page's arithmetic: durations in words, background agents at work, the timeline's hour rows and the usage meters.
+ * The page's arithmetic: durations in words, background agents at work, the timeline's hour rows.
  * Each function is tested here AND sent to the browser as its own source text (`PAGE_MATH` below, joined into the page
  * script), so the page runs exactly the tested code. That is why each one stands alone: no imports, no module values,
  * no calls to anything outside the list in `PAGE_MATH`.
@@ -72,57 +72,11 @@ export function hourRows(
   return rows;
 }
 
-export type MeterIn = {
-  five_hour: number | null;
-  seven_day: number | null;
-  five_hour_resets_at: number | null;
-  updated: string | null;
-} | null;
-export type MeterBar = {
-  label: string;
-  pct: number;
-  on: number;
-  level: "ok" | "amber" | "red";
-  resetsAt: number | null;
-};
-
-/**
- * The header's usage meters: each is 10 segments, amber from 75% and red from 90%; the whole meter is stale when
- * the file was written more than 15 minutes ago (or says nothing about when). The 5-hour meter says when it resets
- * only while that time is still ahead. Null when there is no meter.
- */
-export function meterView(meter: MeterIn, nowMs: number): { bars: MeterBar[]; stale: boolean } | null {
-  if (!meter) return null;
-  const level = (pct: number): "ok" | "amber" | "red" => (pct >= 90 ? "red" : pct >= 75 ? "amber" : "ok");
-  const bars: MeterBar[] = [];
-  if (meter.five_hour !== null) {
-    const resets = meter.five_hour_resets_at === null ? null : meter.five_hour_resets_at * 1000;
-    bars.push({
-      label: "5 h",
-      pct: Math.round(meter.five_hour),
-      on: Math.round(meter.five_hour / 10),
-      level: level(meter.five_hour),
-      resetsAt: resets !== null && resets > nowMs ? resets : null,
-    });
-  }
-  if (meter.seven_day !== null) {
-    bars.push({
-      label: "Week",
-      pct: Math.round(meter.seven_day),
-      on: Math.round(meter.seven_day / 10),
-      level: level(meter.seven_day),
-      resetsAt: null,
-    });
-  }
-  const written = meter.updated === null ? Number.NaN : Date.parse(meter.updated);
-  return { bars, stale: !(nowMs - written <= 15 * 60_000) };
-}
-
 /**
  * The functions above as page-script source (types already gone). A runner that keeps function names (tsx in
  * `npm run dev`) wraps named arrows in `__name(...)`; the one-line stand-in makes that harmless in the browser.
  */
 export const PAGE_MATH = [
   "var __name = function (f) { return f; };",
-  ...[durationText, agentsWorking, agentSegments, hourRows, meterView].map((f) => f.toString()),
+  ...[durationText, agentsWorking, agentSegments, hourRows].map((f) => f.toString()),
 ].join("\n");

@@ -3,18 +3,12 @@ import { basename, dirname, join } from "node:path";
 import type { ProjectRow } from "./board.js";
 
 /**
- * One line of `~/.nightshift/projects.json`: a folder, the name to show, `hide` to drop an auto-added repo, and
- * `watchSite` (the id of the site Sentinel watches for this project; "" = none).
+ * One line of `~/.nightshift/projects.json`: a folder, the name to show, and `hide` to drop an auto-added repo.
+ * Other keys are ignored, so an older file still loads.
  */
-export type Pinned = { path: string; name: string; hide?: boolean; watchSite?: string };
+export type Pinned = { path: string; name: string; hide?: boolean };
 /** A tile on the start page. `project` is the folder name (the board's address); `name` is what people read. */
-export type Tile = ProjectRow & { name: string; active: boolean; pinned: boolean; watchSite: string | null };
-
-/** The Sentinel site for a project (folder name): the line's `watchSite`, else none. */
-export function watchSiteOf(pinned: Pinned[], project: string, home: string): string | null {
-  const site = pinned.find((p) => basename(expand(p.path, home)) === project)?.watchSite;
-  return site?.trim() ? site.trim() : null;
-}
+export type Tile = ProjectRow & { name: string; active: boolean; pinned: boolean };
 
 /** A repository next to the pinned ones is added by itself when Claude worked in it this recently. */
 export const AUTO_DAYS = 30;
@@ -29,8 +23,7 @@ function parseLine(item: unknown): Pinned {
   const o = (item ?? {}) as Record<string, unknown>;
   if (typeof o.path !== "string" || !o.path.trim()) throw new Error("every line needs a path");
   const name = typeof o.name === "string" && o.name.trim() ? o.name.trim() : basename(o.path.replace(/\/+$/, ""));
-  const watch = typeof o.watchSite === "string" ? { watchSite: o.watchSite.trim() } : {};
-  return { path: o.path.trim(), name, ...(o.hide === true ? { hide: true } : {}), ...watch };
+  return { path: o.path.trim(), name, ...(o.hide === true ? { hide: true } : {}) };
 }
 
 /**
@@ -73,13 +66,7 @@ export function projectTiles(rows: ProjectRow[], pinned: Pinned[], o: Options): 
   const tiles = new Map<string, Tile>();
   const busy = (r: ProjectRow) => r.agents > 0 || o.nowMs - Date.parse(r.lastAt) <= BUSY_MS;
   const add = (r: ProjectRow, name: string, isPinned: boolean) =>
-    tiles.set(r.project, {
-      ...r,
-      name,
-      active: busy(r),
-      pinned: isPinned,
-      watchSite: watchSiteOf(pinned, r.project, o.home),
-    });
+    tiles.set(r.project, { ...r, name, active: busy(r), pinned: isPinned });
   for (const p of pinned) {
     if (p.hide) continue;
     const folder = expand(p.path, o.home);

@@ -1,4 +1,5 @@
 import { request } from "node:http";
+import { Script } from "node:vm";
 import { describe, expect, it } from "vitest";
 import { startServer } from "../src/server/index.js";
 import { OLD_NAMES } from "./old-names.js";
@@ -87,6 +88,24 @@ describe("the live stream", () => {
       expect(page).toContain("<title>Lens</title>");
       expect(page).toContain("Connecting to Lens…");
       for (const old of OLD_NAMES) expect(page).not.toContain(old);
+      // The page script is valid JavaScript (a syntax error would leave the page on "Connecting to Lens…").
+      const script = /<script>([\s\S]*)<\/script>/.exec(page)?.[1] ?? "";
+      expect(() => new Script(script)).not.toThrow();
+      // The usage meter and the Sentinel link are Motherboard's now; the usage-limit trouble alert stays.
+      for (const gone of [
+        "Sentinel",
+        "From Sentinel",
+        "Live site",
+        "renderMeters",
+        "renderWatch",
+        "meterView",
+        "ui.meters",
+        '"meters"',
+        "usage-now",
+        "nightwatch-url",
+      ])
+        expect(page).not.toContain(gone);
+      expect(script).toContain("Paused: usage limit");
       const startPage = await (await fetch(`http://127.0.0.1:${server.port}/`)).text();
       expect(startPage).toContain("<title>Lens</title>");
       // The page loads nothing from the internet: no script, style, font or image from another host.

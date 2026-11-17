@@ -205,7 +205,6 @@ describe.skipIf(!canLock)("the built command heals itself", () => {
         ...process.env,
         NIGHTSHIFT_LOGS: logs,
         NIGHTSHIFT_DATA: join(dir, "data"),
-        NIGHTSHIFT_USAGE: join(dir, "usage-now.json"),
         NIGHTSHIFT_PORT: String(await freePort()),
         NIGHTSHIFT_STALE_MS: "300",
         NIGHTSHIFT_WATCHDOG_MS: "100",

@@ -1,7 +1,37 @@
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import { createServer } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseArgs, startBanner, usage } from "../src/usage.js";
 import { OLD_NAMES } from "./old-names.js";
+
+/** A port nobody listens on right now. */
+const freePort = () =>
+  new Promise<number>((resolve) => {
+    const s = createServer();
+    s.listen(0, "127.0.0.1", () => {
+      const address = s.address();
+      const port = typeof address === "object" && address ? address.port : 0;
+      s.close(() => resolve(port));
+    });
+  });
+
+/** The first board (or project list, for "") the server pushes to a page. */
+async function firstFrame(port: number, project: string): Promise<unknown> {
+  const res = await fetch(`http://127.0.0.1:${port}/events?project=${encodeURIComponent(project)}`);
+  const reader = res.body?.getReader();
+  const decode = new TextDecoder();
+  let text = "";
+  while (!/\ndata: .*\n\n/.test(text)) {
+    const { value, done } = (await reader?.read()) ?? { done: true };
+    if (done) break;
+    text += decode.decode(value);
+  }
+  await reader?.cancel();
+  return JSON.parse(/\ndata: (.*)\n\n/.exec(text)?.[1] ?? "null");
+}
 
 // Runs the real command with the same Node that runs the tests (no npx, no network, works on Windows too).
 const run = (...args: string[]) =>
@@ -17,7 +47,60 @@ describe("a developer runs nightshift for the first time", () => {
     expect(stdout).toContain("-v, --version");
     expect(stdout).toContain("Lens only reads Claude Code's log files. Nothing leaves your computer.");
     for (const old of OLD_NAMES) expect(stdout).not.toContain(old);
+    // Only Lens's own settings: the usage meter and the Sentinel link are Motherboard's now.
+    expect([...stdout.matchAll(/NIGHTSHIFT_\w+/g)].map((m) => m[0])).toEqual([
+      "NIGHTSHIFT_PORT",
+      "NIGHTSHIFT_LOGS",
+      "NIGHTSHIFT_DATA",
+      "NIGHTSHIFT_KEEP_DAYS",
+    ]);
+    expect(stdout).not.toMatch(/Sentinel|usage meter|usage file/i);
   });
+
+  it("starts with no Sentinel and no usage file, and warns about neither", async () => {
+    const home = mkdtempSync(join(tmpdir(), "lens-cli-"));
+    const port = await freePort();
+    const child = spawn(process.execPath, ["--import", "tsx", "src/cli.ts"], {
+      env: {
+        ...process.env,
+        HOME: home,
+        NIGHTSHIFT_LOGS: join(home, "logs"),
+        NIGHTSHIFT_DATA: join(home, "data"),
+        NIGHTSHIFT_PORT: String(port),
+      },
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (d: Buffer) => {
+      stdout += d.toString();
+    });
+    child.stderr.on("data", (d: Buffer) => {
+      stderr += d.toString();
+    });
+    try {
+      const end = Date.now() + 15_000;
+      while (!stdout.includes("Desks:") && Date.now() < end) await new Promise((r) => setTimeout(r, 50));
+      expect(stdout).toContain(`Board: http://localhost:${port}/`);
+      const page = await (await fetch(`http://127.0.0.1:${port}/demo-app`)).text();
+      expect(page).toContain("<title>Lens</title>");
+      // The board and the start page's tiles carry no meter and no Sentinel keys.
+      const board = (await firstFrame(port, "demo-app")) as Record<string, unknown>;
+      expect(board).toMatchObject({ project: "demo-app", name: "demo-app" });
+      expect(board).not.toHaveProperty("meter");
+      expect(board).not.toHaveProperty("watch");
+      const tiles = (await firstFrame(port, "")) as Record<string, unknown>[];
+      expect(Array.isArray(tiles)).toBe(true);
+      for (const tile of tiles) expect(Object.keys(tile)).not.toContain("watch");
+      await new Promise((r) => setTimeout(r, 300)); // time for a late warning to show
+      expect(stderr).not.toContain("nightshift:");
+      expect(`${stdout}${stderr}`).not.toMatch(/Sentinel|usage/i);
+    } finally {
+      const exited = new Promise((r) => child.once("exit", r));
+      child.kill("SIGTERM");
+      await exited;
+      rmSync(home, { recursive: true, force: true });
+    }
+  }, 30_000);
 
   it("says Lens, what it watches and where the board is when it starts", () => {
     const text = startBanner({

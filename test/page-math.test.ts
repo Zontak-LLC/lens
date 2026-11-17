@@ -1,7 +1,7 @@
 import { runInNewContext, Script } from "node:vm";
 import { describe, expect, it } from "vitest";
 import { boardPage } from "../src/web/index.js";
-import { agentSegments, agentsWorking, durationText, hourRows, meterView, PAGE_MATH } from "../src/web/page-math.js";
+import { agentSegments, agentsWorking, durationText, hourRows, PAGE_MATH } from "../src/web/page-math.js";
 
 const at = (hhmm: string) => `2026-10-24T${hhmm}:00.000Z`;
 const seg = (num: number, kind: string, from: string, to: string) => ({
@@ -59,7 +59,6 @@ describe("the page", () => {
     const script = /<script>([\s\S]*)<\/script>/.exec(page)?.[1] ?? "";
     expect(() => new Script(script)).not.toThrow();
     expect(script).toContain("function hourRows(");
-    expect(script).toContain("function meterView(");
     expect(script.indexOf("var __name")).toBeLessThan(script.indexOf("function durationText("));
     for (const view of ["Board", "Terminal", "Timeline"]) expect(script).toContain(`"${view}"`);
   });
@@ -67,11 +66,10 @@ describe("the page", () => {
   it("sends the arithmetic as source that gives the same answers in the browser as in these tests", () => {
     const now = Date.parse(at("03:10"));
     const segs = [{ num: 9, label: "#9", kind: "live", from: Date.parse(at("02:40")), to: now }];
-    const meter = { five_hour: 80, seven_day: 20, five_hour_resets_at: null, updated: at("03:05") };
     const sent = runInNewContext(
-      `${PAGE_MATH}; JSON.stringify([hourRows(${segs[0]?.from}, ${now}, ${JSON.stringify(segs)}), durationText(65 * 60000), meterView(${JSON.stringify(meter)}, ${now})])`,
+      `${PAGE_MATH}; JSON.stringify([hourRows(${segs[0]?.from}, ${now}, ${JSON.stringify(segs)}), durationText(65 * 60000)])`,
     );
-    expect(JSON.parse(sent)).toEqual([hourRows(Date.parse(at("02:40")), now, segs), "1h 05m", meterView(meter, now)]);
+    expect(JSON.parse(sent)).toEqual([hourRows(Date.parse(at("02:40")), now, segs), "1h 05m"]);
   });
 });
 

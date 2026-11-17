@@ -70,8 +70,8 @@ async function pageScript(): Promise<string> {
   }
 }
 
-/** Runs the page for project shop-app, sends it one board, and returns the page's root element. */
-async function drawBoard(view: Record<string, unknown>): Promise<Node> {
+/** Runs the page (for project shop-app by default), sends it one board, and returns the page's root element. */
+async function drawBoard(view: unknown, pathname = "/shop-app", kind = "board"): Promise<Node> {
   const root = fakeNode("main");
   const listeners: Record<string, (e: { data: string }) => void> = {};
   const document = {
@@ -82,7 +82,7 @@ async function drawBoard(view: Record<string, unknown>): Promise<Node> {
   };
   runInNewContext(await pageScript(), {
     document,
-    location: { pathname: "/shop-app" },
+    location: { pathname },
     localStorage: { getItem: () => null, setItem() {} },
     EventSource: class {
       addEventListener(kind: string, fn: (e: { data: string }) => void) {
@@ -92,7 +92,7 @@ async function drawBoard(view: Record<string, unknown>): Promise<Node> {
     setInterval: () => 0,
     window: {},
   });
-  listeners.board?.({ data: JSON.stringify(view) });
+  listeners[kind]?.({ data: JSON.stringify(view) });
   return root;
 }
 
@@ -104,12 +104,11 @@ const view = (extra: Record<string, unknown> = {}) => ({
   now: [{ who: "Add a coupon field", what: "Editing src/cart.ts", at: NOW_ISO }],
   agents: [],
   alerts: [],
-  meter: { five_hour: 42, seven_day: 78, five_hour_resets_at: null, updated: NOW_ISO },
   ...extra,
 });
 
 describe("the Board tab without the pipeline (issue 28)", () => {
-  it("has no stations floor, no ticket stats and no ticket dialog, and keeps NOW, the agents and the meters", async () => {
+  it("has no stations floor, no ticket stats and no ticket dialog, and keeps NOW and the agents", async () => {
     const nodes = all(await drawBoard(view()));
     const classes = nodes.flatMap((n) => n.className.split(" "));
     const text = nodes.map((n) => n.textContent).join("\n");
@@ -122,9 +121,6 @@ describe("the Board tab without the pipeline (issue 28)", () => {
     const agents = nodes.find((n) => n.attrs["aria-label"] === "Background agents");
     expect(agents?.hidden).toBe(false);
     expect(agents?.textContent).toBe("Background agentsNo background agent in this project yet.");
-    const meters = nodes.find((n) => n.className === "meters");
-    expect(meters?.hidden).toBe(false);
-    expect(meters?.children.map((m) => m.attrs["aria-label"])).toEqual(["5 h usage 42%", "Week usage 78%"]);
     expect(nodes.find((n) => n.className === "keys")?.textContent).toBe("read only · nothing leaves this computer");
     expect(nodes.find((n) => n.className === "chip")?.textContent).toBe("coupon");
   });
@@ -146,5 +142,44 @@ describe("the Board tab without the pipeline (issue 28)", () => {
     expect(section?.textContent).toContain("1 agent working");
     expect(section?.textContent).toContain("Docs: coupon field");
     expect(section?.textContent).not.toContain("No background agent");
+  });
+});
+
+describe("the page without the usage meter and the Sentinel link (Motherboard shows both)", () => {
+  it("draws a header with the name and the LIVE light only, no Live site strip and no From Sentinel lane", async () => {
+    // A board from an older Lens still carrying the removed keys: the page ignores them.
+    const old = view({ meter: { five_hour: 42, seven_day: 78 }, watch: { siteId: "demo-app", status: "up" } });
+    const nodes = all(await drawBoard(old));
+    const text = nodes.map((n) => n.textContent).join("\n");
+    for (const word of ["Sentinel", "Live site", "5 h", "Week"]) expect(text).not.toContain(word);
+    const stats = nodes.find((n) => n.className === "stats");
+    expect(stats?.children.map((c) => c.className)).toEqual(["conn"]);
+    expect(stats?.textContent).toBe("LIVE");
+    // The NOW strip comes straight after the header, and the Board tab holds the background agents only.
+    const root = nodes[0];
+    expect(root?.children.map((c) => c.className.split(" ")[0])).toEqual([
+      "top",
+      "nowbar",
+      "tabs",
+      "panel",
+      "panel",
+      "panel",
+      "keys",
+    ]);
+    const board = root?.children.find((c) => c.id === "panel-board");
+    expect(board?.children.map((c) => c.className)).toEqual(["agents"]);
+  });
+
+  it("shows the start page header with the brand only, and tiles with no site light", async () => {
+    const tile = { project: "demo-app", name: "Demo App", folder: "~/Projects/demo-app", lastAt: "", agents: 0 };
+    const root = await drawBoard([{ ...tile, active: true, pinned: true, watch: { light: "bad" } }], "/", "projects");
+    const nodes = all(root);
+    const head = root.children[0];
+    expect(head?.className).toBe("top");
+    expect(head?.children.map((c) => c.className)).toEqual(["brand"]);
+    const card = nodes.find((n) => n.className === "project");
+    expect(card?.children.map((c) => c.textContent)).toEqual(["Demo App", "~/Projects/demo-app", "no activity yet"]);
+    expect(nodes.some((n) => n.className.includes("sitelight"))).toBe(false);
+    expect(nodes.map((n) => n.textContent).join("\n")).not.toContain("Sentinel");
   });
 });

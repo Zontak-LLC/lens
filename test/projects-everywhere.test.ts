@@ -12,13 +12,19 @@ const SESSION = "s-main-1";
 let home = "";
 let line = 0;
 
-/** A developer's own list in projects.json (Lens ships an empty one). */
-const PINNED: Pinned[] = [
-  { path: "~/Projects/my-app", name: "My App", watchSite: "my-app" },
+/**
+ * A developer's own list in projects.json (Lens ships an empty one). One line still has the Sentinel site key
+ * older versions read (the Sentinel link is Motherboard's now): Lens ignores it.
+ */
+const PINNED_LINES = [
+  { path: "~/Projects/my-app", name: "My App" },
   { path: "~/Projects/demo-app", name: "Demo App", watchSite: "demo-app" },
   { path: "~/Projects/shop-app", name: "Shop App" },
   { path: "~/Projects/tools", name: "Tools" },
 ];
+const PINNED: Pinned[] = PINNED_LINES;
+/** Everything a start page tile carries, sorted. */
+const TILE_KEYS = ["active", "agents", "folder", "lastAt", "name", "pinned", "project"];
 
 const repo = (name: string) => mkdirSync(join(home, "Projects", name, ".git"), { recursive: true });
 const at = (minute: number) => `2026-10-24T02:${String(minute).padStart(2, "0")}:00.000Z`;
@@ -130,7 +136,8 @@ describe("the fixed project list on the start page", () => {
     ]);
     const tiles = projectTiles(b.projects(NOW), [], { home, nowMs: NOW });
     expect(tiles.map((t) => t.project)).toEqual([elsewhere.split("/").pop(), "sideproject"]);
-    expect(tiles[0]).toMatchObject({ active: true, pinned: false, watchSite: null });
+    expect(tiles[0]).toMatchObject({ active: true, pinned: false });
+    expect(Object.keys(tiles[0] ?? {}).sort()).toEqual(TILE_KEYS);
     expect(tiles[1]).toMatchObject({ active: false, pinned: false, name: "sideproject" });
     rmSync(elsewhere, { recursive: true, force: true });
   });
@@ -219,6 +226,18 @@ describe("the fixed project list on the start page", () => {
     );
     expect(loadPinned(file, warn).map((p) => p.name)).toEqual(["sideproject", "My App"]);
     expect(warnings).toHaveLength(0);
+  });
+
+  it("loads an older file whose line still names a Sentinel site, with no warning, and its tile has no site keys", () => {
+    const file = join(home, "projects.json");
+    writeFileSync(file, JSON.stringify(PINNED_LINES));
+    const pinned = loadPinned(file, warn);
+    expect(warnings).toEqual([]);
+    expect(pinned[1]).toEqual({ path: "~/Projects/demo-app", name: "Demo App" });
+    repo("demo-app");
+    const tile = projectTiles([], pinned, { home, nowMs: NOW }).find((t) => t.project === "demo-app");
+    expect(tile).toMatchObject({ name: "Demo App", pinned: true, active: false });
+    expect(Object.keys(tile ?? {}).sort()).toEqual(TILE_KEYS); // no site key, no Sentinel status
   });
 });
 

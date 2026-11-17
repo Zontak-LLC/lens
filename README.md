@@ -2,10 +2,10 @@
 
 A live screen for your Claude Code agents: what they are doing right now, and what they did overnight.
 
-![The Lens board for a demo project: the usage meters, the NOW strip and the background agents](docs/screenshot.png)
+![The Lens board for a demo project: the NOW strip and the background agents](docs/screenshot.png)
 
-> Status: works day to day: Board, Terminal and Timeline tabs, usage meter, Sentinel link, `GET /agents`, `GET /api/agents`. Not on npm
-> yet. See [docs/SPEC.md](docs/SPEC.md).
+> Status: works day to day: Board, Terminal and Timeline tabs, `GET /agents`, `GET /api/agents`. Not on npm yet. The
+> usage meter and the link to Sentinel live in Motherboard now. See [docs/SPEC.md](docs/SPEC.md).
 
 ## Install and run
 
@@ -30,57 +30,32 @@ Then open http://localhost:4400. The terminal shows the same steps, one line eac
 ## What it reads and writes
 
 Lens runs on your own computer. It has no accounts, no server and no telemetry: **nothing leaves your computer.**
-- It **reads** Claude Code's logs in `~/.claude/projects`, the usage file `~/.claude/usage-now.json` (if there is one),
-  and, if you run it, Sentinel's live stream on `localhost`.
+- It **reads** Claude Code's logs in `~/.claude/projects`, and nothing else.
 - It **writes** only to `~/.nightshift`: its history (`nightshift.db`) and your project list (`projects.json`).
 - The service listens on 127.0.0.1 only and answers only pages on this computer.
 
 ## Settings
 
 `NIGHTSHIFT_PORT` (default 4400), `NIGHTSHIFT_LOGS` (default `~/.claude/projects`), `NIGHTSHIFT_DATA` (where the
-history is kept, default `~/.nightshift`), `NIGHTSHIFT_KEEP_DAYS` (default 30), `NIGHTSHIFT_USAGE` (the usage file)
-and `NIGHTSHIFT_NIGHTWATCH_URL` (Sentinel's address, see below). `NIGHTSHIFT_STALE_MS` (default 1800000, 30 minutes:
+history is kept, default `~/.nightshift`) and `NIGHTSHIFT_KEEP_DAYS` (default 30). `NIGHTSHIFT_STALE_MS` (default 1800000, 30 minutes:
 how long a log's bytes may wait unread before Lens counts as stale and restarts) and `NIGHTSHIFT_WATCHDOG_MS` (default
 60000: how often it checks) exist mostly for tests; anything that is not a positive whole number means the default.
 
 The start page shows the git repositories directly under `~/Projects` that Claude worked in during the last 30 days,
-and any project that is busy right now. To pin projects, name them, hide one or link a Sentinel site, edit
-`~/.nightshift/projects.json` (created empty on the first run):
+and any project that is busy right now. To pin projects, name them or hide one, edit `~/.nightshift/projects.json`
+(created empty on the first run):
 
 ```json
 [
-  { "path": "~/Projects/my-app", "name": "My App", "watchSite": "my-app" },
+  { "path": "~/Projects/my-app", "name": "My App" },
+  { "path": "~/Projects/shop-app", "name": "Shop App" },
   { "path": "~/Projects/old-thing", "hide": true }
 ]
 ```
 
 `name` is what the tile and the board title say (the board address uses the folder name); `hide` removes a repo that
-was added by itself; `watchSite` is optional (see below). A damaged file falls back to an empty list and says so in
-the log.
-
-## Sentinel link (optional)
-
-Sentinel, our site guard, is optional and not public yet. Lens is the workshop (the coding work); Sentinel is the
-guard (the live sites). Without it, Lens works the same and shows no site parts.
-
-Lens only READS Sentinel: it follows `http://localhost:4500/events` (change it with `NIGHTSHIFT_NIGHTWATCH_URL`; only
-an address on this computer is accepted), reconnects with a growing wait, and shows "Sentinel: not running" when it is off.
-- A project with a watched site shows a **Live site** strip: the site's light (its worst tile), the open incidents, the
-  last release and its verdict, and a link `→ Sentinel` to `http://localhost:4500/?site=<id>`.
-- Open incidents appear on the Board tab in a **From Sentinel** lane (title, severity, count, age, the AI's
-  recommended fix, the issue draft's title). Resolved ones move to **Done · healed** with "healed by ..." when
-  Sentinel tried a fix that worked, else "cleared by itself". There are no buttons that act on Sentinel.
-- The start page shows a small site light on each linked project's tile, and every page has a `→ Sentinel` link.
-- Which project is which site: the `watchSite` of its line in `~/.nightshift/projects.json` (`""` or no `watchSite`
-  means no link).
-
-## Usage meter
-
-The header shows two small meters read from `~/.claude/usage-now.json` (change the place with `NIGHTSHIFT_USAGE`),
-looked at every 30 seconds: `5 h  31% · resets 06:40` and `Week 52%`, ten segments each, amber from 75% and red from
-90%. They turn grey and say "stale" when the file is older than 15 minutes, and they are hidden when the file is
-missing. The file is `{"five_hour": 31, "seven_day": 52, "five_hour_resets_at": <unix seconds>, "updated": "<ISO time>"}`.
-Times show in the browser's local time.
+was added by itself. Other keys are ignored, so a line from an older Lens still loads. A damaged file falls back to an
+empty list and says so in the log. Times show in the browser's local time.
 
 ## History
 
