@@ -6,7 +6,7 @@ import { type Engine, startEngine } from "../src/engine.js";
 import type { Desk, DesksView } from "../src/store/index.js";
 
 // Shared by the desks tests. The fixtures in test/fixtures/desks/ have the shape of real Claude Code logs (a main
-// session, one background agent, one pipeline run); all names, ids and texts are invented. "/work" in them stands for
+// session and one background agent); all names, ids and texts are invented. "/work" in them stands for
 // a folder made per test.
 const FIXTURES = join(import.meta.dirname, "fixtures", "desks");
 export const SESSION = "s-desk-1";
@@ -18,7 +18,7 @@ export const until = async (check: () => boolean, ms = 3000) => {
   while (!check() && Date.now() < end) await new Promise((r) => setTimeout(r, 25));
   return check();
 };
-export const deskOf = (view: DesksView, role: "main session" | "background agent" | "pipeline agent") =>
+export const deskOf = (view: DesksView, role: "main session" | "background agent") =>
   view.list?.find((d) => d.role === role);
 export const deskById = (view: DesksView, id: string): Desk | undefined => view.list?.find((d) => d.id === id);
 
@@ -34,7 +34,6 @@ export function useDeskLogs() {
       root: join(base, "logs"),
       session: join(project, `${SESSION}.jsonl`),
       subagents,
-      run: join(subagents, "workflows", "run-1"),
       db: join(base, "ns.db"),
     };
   };
@@ -55,13 +54,11 @@ export function useDeskLogs() {
 
   function writeLogs() {
     const p = paths();
-    mkdirSync(p.run, { recursive: true });
+    mkdirSync(p.subagents, { recursive: true });
     for (const repo of ["shop-app", "docs-site"]) mkdirSync(join(base, repo, ".git"), { recursive: true });
     writeFileSync(p.session, fixture("session.jsonl"));
     writeFileSync(join(p.subagents, "agent-bg1.jsonl"), fixture("agent-bg1.jsonl"));
     writeFileSync(join(p.subagents, "agent-bg1.meta.json"), fixture("agent-bg1.meta.json"));
-    writeFileSync(join(p.run, "journal.jsonl"), fixture("journal.jsonl"));
-    writeFileSync(join(p.run, "agent-pipe7.jsonl"), fixture("agent-pipe7.jsonl"));
   }
 
   const start = (): Engine => {
@@ -75,7 +72,7 @@ export function useDeskLogs() {
     await until(() => {
       const d = started.board.desks(NOW).list ?? [];
       return (
-        d.length === 3 &&
+        d.length === 2 &&
         d.some((x) => x.title === "Docs: coupon field") &&
         d.every((x) => x.stepCount === 3 || x.stepCount === 4)
       );

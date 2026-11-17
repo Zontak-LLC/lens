@@ -77,33 +77,16 @@ describe("when Claude stops, the board says why and when it comes back", () => {
     expect(board.view("demo-app").alerts).toEqual([]);
   });
 
-  it("pauses a pipeline ticket when its agent hits the limit, and only that ticket", () => {
+  it("keeps a background agent's limit off the session's NOW strip: it is the agent's own (its desk waits)", () => {
     const board = new Board();
-    feed(board, [step("2026-10-23T23:00:00.000Z")]);
-    const place = { runId: "wf_demo", sessionId: "s-demo-1" };
-    board.apply({
-      kind: "run.queue",
-      ...place,
-      tickets: [
-        { number: 13, title: "Dark mode" },
-        { number: 14, title: "Export" },
-      ],
-    });
-    board.apply({
-      kind: "agent.started",
-      ...place,
-      agentId: "agent-13",
-      label: "#13 Dark mode",
-      phase: "Fix",
-      number: 13,
-    });
-    feed(board, [limitLine("2026-10-23T23:40:00.000Z", { agentId: "agent-13", isSidechain: true })]);
-    const view = board.view("demo-app");
-    expect(view.alerts).toEqual([expect.objectContaining({ who: "#13", reason: "usage_limit" })]);
-    expect(view.run?.columns.working.find((t) => t.number === 13)?.trouble).toMatchObject({ reason: "usage_limit" });
-    expect(view.run?.columns.queued.find((t) => t.number === 14)?.trouble).toBeNull();
-    feed(board, [step("2026-10-24T01:41:00.000Z", { agentId: "agent-13", isSidechain: true })]);
+    const agent = { agentId: "agent-13", isSidechain: true };
+    const desk = (at: string) => board.desks(Date.parse(at), "").list?.find((d) => d.id === "agent:agent-13");
+    feed(board, [step("2026-10-23T23:00:00.000Z"), step("2026-10-23T23:30:00.000Z", agent)]);
+    feed(board, [limitLine("2026-10-23T23:40:00.000Z", agent)]);
     expect(board.view("demo-app").alerts).toEqual([]);
+    expect(desk("2026-10-23T23:41:00.000Z")).toMatchObject({ role: "background agent", state: "waits" });
+    feed(board, [step("2026-10-23T23:42:00.000Z", agent)]);
+    expect(desk("2026-10-23T23:43:00.000Z")).toMatchObject({ role: "background agent", state: "working" });
   });
 
   it("prints the pause in the terminal with its reset time", () => {
@@ -124,47 +107,6 @@ describe("when Claude stops, the board says why and when it comes back", () => {
       message: { content: [{ type: "text", text: "Picking up where we left off." }] },
     });
     feed(board, [reply]);
-    expect(board.view("demo-app").alerts).toEqual([]);
-  });
-
-  it("drops the pause when the paused ticket finishes, and when it is restarted by a new agent", () => {
-    const board = new Board();
-    feed(board, [step("2026-10-23T23:00:00.000Z")]);
-    const place = { runId: "wf_demo", sessionId: "s-demo-1" };
-    board.apply({ kind: "run.queue", ...place, tickets: [{ number: 13, title: "Dark mode" }] });
-    board.apply({
-      kind: "agent.started",
-      ...place,
-      agentId: "agent-13",
-      label: "#13 Dark mode",
-      phase: "Fix",
-      number: 13,
-    });
-    feed(board, [limitLine("2026-10-23T23:40:00.000Z", { agentId: "agent-13", isSidechain: true })]);
-    // Restarted by a new agent: no pause carried over, and a late error from the old agent does not pause it again.
-    board.apply({
-      kind: "agent.started",
-      ...place,
-      agentId: "agent-13b",
-      label: "#13 Dark mode",
-      phase: "Fix",
-      number: 13,
-    });
-    expect(board.view("demo-app").alerts).toEqual([]);
-    feed(board, [limitLine("2026-10-23T23:50:00.000Z", { agentId: "agent-13", isSidechain: true })]);
-    expect(board.view("demo-app").alerts).toEqual([]);
-    // Paused, then finished: the finished ticket is not an alert.
-    feed(board, [limitLine("2026-10-23T23:55:00.000Z", { agentId: "agent-13b", isSidechain: true })]);
-    expect(board.view("demo-app").alerts).toHaveLength(1);
-    board.apply({
-      kind: "agent.result",
-      ...place,
-      agentId: "agent-13b",
-      number: 13,
-      status: "merged",
-      pr: null,
-      summary: null,
-    });
     expect(board.view("demo-app").alerts).toEqual([]);
   });
 });

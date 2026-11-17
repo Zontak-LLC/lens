@@ -5,7 +5,7 @@ import { runInNewContext } from "node:vm";
 import { afterEach, describe, expect, it } from "vitest";
 import { parseMeter, readMeter, startMeter } from "../src/meter.js";
 import { boardPage } from "../src/web/index.js";
-import { meterView, SHIFT } from "../src/web/shift.js";
+import { meterView, PAGE_MATH } from "../src/web/page-math.js";
 
 const NOW = Date.parse("2026-10-24T06:00:00Z");
 const file = (o: Record<string, unknown>) => JSON.stringify({ five_hour: 31, seven_day: 52, ...o });
@@ -70,7 +70,7 @@ describe("the meters in the header", () => {
 
   it("is the same code in the page as here", () => {
     const m = parseMeter(file({ updated: new Date(NOW).toISOString() }));
-    const inPage = runInNewContext(`${SHIFT}; JSON.stringify(meterView(${JSON.stringify(m)}, ${NOW}))`);
+    const inPage = runInNewContext(`${PAGE_MATH}; JSON.stringify(meterView(${JSON.stringify(m)}, ${NOW}))`);
     expect(JSON.parse(inPage)).toEqual(meterView(m, NOW));
     expect(boardPage()).toContain("renderMeters");
   });

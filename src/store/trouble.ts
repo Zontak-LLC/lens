@@ -18,29 +18,9 @@ export const troubleFrom = (e: TroubleEvent): Trouble => ({
   text: e.text,
 });
 
-type Paused = { number: number; station: string; agentId: string | null; trouble: Trouble | null };
-
-/**
- * An agent's trouble pauses its ticket, if the ticket is still being worked and still belongs to that agent (after a
- * restart, a late error from the earlier agent must not pause the new one's work).
- */
-export function pauseTicket(t: Paused | undefined, e: TroubleEvent): boolean {
-  if (!t || (t.station !== "working" && t.station !== "checking" && t.station !== "queued")) return false;
-  if (t.agentId && e.agentId && t.agentId !== e.agentId) return false;
-  t.trouble = troubleFrom(e);
-  return true;
-}
-
-/** Everything stopped right now: the sessions' trouble and the tickets still in progress that are paused, newest first. */
-export function alertsOf(
-  sessions: { title: string | null; trouble: Trouble | null }[],
-  tickets: Iterable<Paused>,
-): Alert[] {
+/** Everything stopped right now: the sessions' trouble, newest first. */
+export function alertsOf(sessions: { title: string | null; trouble: Trouble | null }[]): Alert[] {
   const out: Alert[] = [];
   for (const s of sessions) if (s.trouble) out.push({ who: s.title ?? "Session", ...s.trouble });
-  for (const t of tickets) {
-    if (t.trouble && (t.station === "working" || t.station === "checking"))
-      out.push({ who: `#${t.number}`, ...t.trouble });
-  }
   return out.sort((a, b) => b.since.localeCompare(a.since));
 }

@@ -176,7 +176,7 @@ describe("background agents are filed under the project they really work in", ()
       board.projects(NOW).some((p) => p.project === name && p.agents === agents);
     expect(await until(() => shown("nightwatch", 1) && shown("usehourly", 2))).toBe(true);
     const rows = Object.fromEntries(board.projects(NOW).map((p) => [p.project, p]));
-    expect(rows.nightwatch).toMatchObject({ folder: repos.nightwatch, agents: 1, running: 0 });
+    expect(rows.nightwatch).toMatchObject({ folder: repos.nightwatch, agents: 1 });
     expect(rows.usehourly).toMatchObject({ agents: 2 });
     expect(rows.nightwatch?.lastAt).toBe("2026-10-24T02:04:00.000Z");
   });

@@ -31,31 +31,34 @@ const serve = async (board: Board, nowMs = NOW, home = "") => {
 const agentsOf = async (board: Board, nowMs = NOW, home = "") =>
   ((await (await serve(board, nowMs, home)).json()) as DayShiftAgents).agents;
 
-/** One step of a pipeline or background agent: a shell command at a time. */
-const stepLine = (agentId: string, timestamp: string, command: string, extra: Record<string, unknown> = {}) =>
+/** One line of a background agent: a file it reads, or (finished) its closing answer. */
+const agentLine = (agentId: string, timestamp: string, file: string | null) =>
   logs.line({
-    ...extra,
     isSidechain: true,
     agentId,
     type: "assistant",
     timestamp,
     message: {
-      id: `msg_${agentId}_${timestamp}`,
+      id: `msg_${agentId}_${timestamp}_${file ? "read" : "end"}`,
       model: "claude-opus-5-5",
-      content: [{ type: "tool_use", id: `tu_${agentId}_${timestamp}`, name: "Bash", input: { command } }],
+      ...(file
+        ? {
+            content: [{ type: "tool_use", id: `tu_${agentId}_${timestamp}`, name: "Read", input: { file_path: file } }],
+          }
+        : { stop_reason: "end_turn", content: [{ type: "text", text: "Done." }] }),
     },
   });
-const journalLine = (o: Record<string, unknown>) => `${JSON.stringify(o)}\n`;
 
-/** A pipeline ticket in the fixture's run (repo shop-app): its journal line and one step of its agent. */
-function addTicket(agentId: string, label: string, timestamp: string, finished = false) {
-  const { run } = logs.paths();
-  writeFileSync(join(run, `agent-${agentId}.jsonl`), stepLine(agentId, timestamp, "npm run build"));
-  appendFileSync(
-    join(run, "journal.jsonl"),
-    journalLine({ type: "started", key: `v2:${agentId}`, agentId, label, phase: "Build" }) +
-      (finished ? journalLine({ type: "result", key: `v2:${agentId}`, agentId, result: { status: "done" } }) : ""),
+/** A background agent of the fixture's session, named `title`, reading one file in `repo` (finished: it answered). */
+function addAgent(agentId: string, title: string, timestamp: string, o: { repo?: string; finished?: boolean } = {}) {
+  const { subagents } = logs.paths();
+  const repo = join(logs.base(), o.repo ?? "shop-app");
+  mkdirSync(join(repo, ".git"), { recursive: true });
+  writeFileSync(
+    join(subagents, `agent-${agentId}.jsonl`),
+    agentLine(agentId, timestamp, join(repo, "notes.md")) + (o.finished ? agentLine(agentId, timestamp, null) : ""),
   );
+  writeFileSync(join(subagents, `agent-${agentId}.meta.json`), JSON.stringify({ description: title }));
 }
 
 /** Each entry has exactly the contract's keys, and each value keeps its rules. */
@@ -87,47 +90,6 @@ describe("Day Shift pulls this computer's running agents", () => {
     expect(await res.text()).toBe('{"agents":[]}');
   });
 
-  it("sends a pipeline agent on ticket 12 in shop-api with its own last line and a 30-minute limit", async () => {
-    const base = logs.base();
-    const project = join(logs.paths().root, "-work-shop-api");
-    const run = join(project, "s-api", "subagents", "workflows", "run-2");
-    mkdirSync(run, { recursive: true });
-    mkdirSync(join(base, "shop-api", ".git"), { recursive: true });
-    const api = { sessionId: "s-api", cwd: `${base}/shop-api` };
-    writeFileSync(
-      join(project, "s-api.jsonl"),
-      logs.line({
-        ...api,
-        type: "user",
-        timestamp: "2026-10-29T08:58:00.000Z",
-        message: { role: "user", content: "Go" },
-      }),
-    );
-    writeFileSync(
-      join(run, "journal.jsonl"),
-      journalLine({ type: "launched" }) +
-        journalLine({ type: "started", key: "v2:a", agentId: "api12", label: "#12 Fix loader", phase: "Build" }),
-    );
-    writeFileSync(
-      join(run, "agent-api12.jsonl"),
-      stepLine("api12", "2026-10-29T09:03:00.000Z", "npm run build", api) +
-        stepLine("api12", "2026-10-29T09:04:20.000Z", "npm run ci", api),
-    );
-    const { board } = logs.start();
-    const ticket = () => board.running(NOW, "").agents.find((a) => a.worksOn.startsWith("shop-api: #12"));
-    expect(await until(() => ticket()?.startedAt === "2026-10-29T09:04:20.000Z")).toBe(true);
-    const agents = await agentsOf(board);
-    expect(agents.filter((a) => a.worksOn.startsWith("shop-api: #12"))).toEqual([
-      {
-        role: "pipeline agent",
-        worksOn: "shop-api: #12 Fix loader",
-        startedAt: "2026-10-29T09:04:20.000Z",
-        limitMinutes: 30,
-      },
-    ]);
-    expectContract(agents);
-  });
-
   it("sends main sessions and background agents with no limit, so Day Shift's 15 minutes apply", async () => {
     const { board } = await logs.open();
     const agents = await agentsOf(board);
@@ -138,12 +100,6 @@ describe("Day Shift pulls this computer's running agents", () => {
         worksOn: "docs-site: Docs: coupon field",
         startedAt: "2026-10-29T09:03:30.000Z",
         limitMinutes: null,
-      },
-      {
-        role: "pipeline agent",
-        worksOn: "shop-app: #7 Add a coupon field",
-        startedAt: "2026-10-29T09:04:30.000Z",
-        limitMinutes: 30,
       },
       {
         role: "main session",
@@ -158,10 +114,6 @@ describe("Day Shift pulls this computer's running agents", () => {
   it("lists a session waiting on a rate limit, and drops idle desks and finished agents", async () => {
     const { board } = await logs.open();
     appendFileSync(logs.paths().session, logs.limitLine("2026-10-29T09:04:40.000Z"));
-    appendFileSync(
-      join(logs.paths().run, "journal.jsonl"),
-      journalLine({ type: "result", key: "v2:a", agentId: "pipe7", result: { status: "done" } }),
-    );
     const roles = () => board.running(NOW, "").agents.map((a) => a.role);
     expect(await until(() => roles().join() === "main session,background agent")).toBe(true);
     // 15 min after the last steps: the main session's limit is still open (it waits), and the background agent's
@@ -178,25 +130,27 @@ describe("Day Shift pulls this computer's running agents", () => {
   });
 
   it("shows the home folder as ~ once, single spaces, and cuts worksOn to 200 characters last", async () => {
-    // Short, like test/desks.test.ts: the journal cuts a label at 200 characters, and the test folder's path is long.
+    // Short, like test/desks.test.ts: a title is cut at 80 characters, and the test folder's path is long. A repo with
+    // a 145-character name makes worksOn longer than 200.
     const home = "/srv/dev";
-    addTicket("long9", `#9   Tidy\t ${home}/notes   ${"word ".repeat(60)}`, "2026-10-29T09:04:10.000Z");
-    addTicket("tilde10", "#10 Read ~/notes", "2026-10-29T09:04:05.000Z");
+    const repo = `shop-${"x".repeat(140)}`;
+    addAgent("long9", `Tidy\t ${home}/notes   ${"word ".repeat(12)}`, "2026-10-29T09:04:10.000Z", { repo });
+    addAgent("tilde10", "Read ~/notes", "2026-10-29T09:04:05.000Z");
     const { board } = logs.start();
     const find = (prefix: string) => board.running(NOW, home).agents.find((a) => a.worksOn.startsWith(prefix));
-    expect(await until(() => Boolean(find("shop-app: #9") && find("shop-app: #10")))).toBe(true);
+    expect(await until(() => Boolean(find(`${repo}: Tidy`) && find("shop-app: Read")))).toBe(true);
     const agents = await agentsOf(board, NOW, home);
-    const long = agents.find((a) => a.worksOn.startsWith("shop-app: #9"))?.worksOn ?? "";
+    const long = agents.find((a) => a.worksOn.startsWith(repo))?.worksOn ?? "";
     expect(long).toHaveLength(200);
-    expect(long).toBe(`shop-app: #9 Tidy ~/notes ${"word ".repeat(60)}`.slice(0, 200));
+    expect(long).toBe(`${repo}: Tidy ~/notes ${"word ".repeat(12)}`.slice(0, 200));
     expect(long).not.toContain(home);
-    expect(agents.find((a) => a.worksOn.startsWith("shop-app: #10"))?.worksOn).toBe("shop-app: #10 Read ~/notes");
+    expect(agents.find((a) => a.worksOn.startsWith("shop-app: Read"))?.worksOn).toBe("shop-app: Read ~/notes");
     expectContract(agents);
   });
 
   it("keeps 20 running agents from the whole list: 60 live desks, 5 idle ones newer than all", async () => {
     const { session } = logs.paths();
-    for (let i = 0; i < 52; i++) {
+    for (let i = 0; i < 53; i++) {
       const second = String(i).padStart(2, "0");
       writeFileSync(
         session.replace("s-desk-1.jsonl", `s-many-${i}.jsonl`),
@@ -208,7 +162,8 @@ describe("Day Shift pulls this computer's running agents", () => {
         }),
       );
     }
-    for (let i = 0; i < 5; i++) addTicket(`done${i}`, `#${20 + i} Finished`, `2026-10-29T09:04:5${5 + i}.000Z`, true);
+    for (let i = 0; i < 5; i++)
+      addAgent(`done${i}`, `Finished ${i}`, `2026-10-29T09:04:5${5 + i}.000Z`, { finished: true });
     const engine = logs.start();
     // biome-ignore lint/complexity/useLiteralKeys: the test reaches the board's private source to call seatedOf
     const seated = () => seatedOf(engine.board["deskSource"](""), NOW);

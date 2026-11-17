@@ -1,6 +1,6 @@
 /**
  * The Sentinel parts of the page, as pure functions that are tested here AND sent to the browser as their own
- * source (the same trick as shift.ts, so each one stands alone: no imports, no outside values).
+ * source (the same trick as page-math.ts, so each one stands alone: no imports, no outside values).
  */
 export type WatchIn = {
   siteId: string;

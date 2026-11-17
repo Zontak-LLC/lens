@@ -1,4 +1,4 @@
-import { appendFileSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { request } from "node:http";
 import { join } from "node:path";
 import { afterEach, describe, expect, expectTypeOf, it } from "vitest";
@@ -31,7 +31,7 @@ afterEach(async () => {
 });
 
 describe("Motherboard pulls this computer's live agents", () => {
-  it("serves one desk per agent: role, ticket, repo, model, steps and run time from the logs", async () => {
+  it("serves one desk per agent: role, repo, model, steps and run time from the logs", async () => {
     const { board } = await logs.open();
     const res = await serveDesks(() => board.desks(NOW));
     expect(res.status).toBe(200);
@@ -39,7 +39,7 @@ describe("Motherboard pulls this computer's live agents", () => {
     expect(res.headers.get("access-control-allow-origin")).toBeNull();
     const view = (await res.json()) as DesksView;
     // The background agent asks a question: it waits for the owner, so it comes first; then the newest active one.
-    expect(view.list?.map((d) => d.role)).toEqual(["background agent", "pipeline agent", "main session"]);
+    expect(view.list?.map((d) => d.role)).toEqual(["background agent", "main session"]);
 
     expect(deskOf(view, "main session")).toEqual({
       id: `main:${SESSION}`,
@@ -65,24 +65,9 @@ describe("Motherboard pulls this computer's live agents", () => {
       costUsd: null,
       minutes: 4, // 3 min 50 s since 09:01:10
     });
-    expect(deskOf(view, "pipeline agent")).toEqual({
-      id: "agent:pipe7",
-      title: "Add a coupon field",
-      role: "pipeline agent",
-      ticket: "#7",
-      project: "shop-app",
-      model: "claude-opus-5-5",
-      state: "working",
-      steps: ["Reading src/coupon.ts", "Writing src/coupon.ts", "Running npm run ci"],
-      stepCount: 3,
-      costUsd: null,
-      minutes: 3, // 2 min 50 s since 09:02:10
-    });
     // Tokens only: no desk has a cost, and nothing else in the payload looks like money.
     expect(view.list?.every((d) => d.costUsd === null)).toBe(true);
     expect(JSON.stringify(view).replaceAll('"costUsd":null', "")).not.toMatch(/\$|usd|price|dollar/i);
-    // The pipeline agent is one pipeline desk, never also a background agent.
-    expect(view.list?.filter((d) => d.id === "agent:pipe7")).toHaveLength(1);
     expect(JSON.stringify(view)).not.toContain(logs.base());
   });
 
@@ -97,7 +82,6 @@ describe("Motherboard pulls this computer's live agents", () => {
       total: 4108,
     });
     expect(board.deskTokens("agent:bg1")?.total).toBe(334 + 386 + 360);
-    expect(board.deskTokens("agent:pipe7")?.total).toBe(541 + 842 + 891);
   });
 
   it("never sends a background agent's prompt: with no meta file its desk is named by its id", async () => {
@@ -109,81 +93,57 @@ describe("Motherboard pulls this computer's live agents", () => {
     expect(JSON.stringify(board.desks(NOW))).not.toContain("Update the docs");
   });
 
-  it("keeps each pipeline agent's own time: a stalled ticket goes idle while its neighbour works", async () => {
-    const { board } = await logs.open();
-    const { run } = logs.paths();
+  it("never follows a workflow run: its agent is no desk, no running agent and no background agent", async () => {
+    // Forge runs and shows pipelines (issue 28): a run's journal and agent logs under subagents/workflows/ are left alone.
+    const run = join(logs.paths().subagents, "workflows", "run-1");
+    mkdirSync(run, { recursive: true });
     writeFileSync(
-      join(run, "agent-pipe8.jsonl"),
-      logs.line({
-        isSidechain: true,
-        agentId: "pipe8",
-        type: "user",
-        timestamp: "2026-10-29T09:02:00.000Z",
-        message: { role: "user", content: "Build ticket #8: Coupon docs" },
-      }) +
-        logs.line({
-          isSidechain: true,
-          agentId: "pipe8",
-          type: "assistant",
-          timestamp: "2026-10-29T09:03:00.000Z",
-          message: { id: "msg_q1", model: "claude-opus-5-5", content: [{ type: "text", text: "Looking around." }] },
-        }),
-    );
-    appendFileSync(
       join(run, "journal.jsonl"),
-      `${JSON.stringify({ type: "started", key: "v2:b", agentId: "pipe8", label: "#8 Coupon docs", phase: "Build" })}\n`,
+      `${JSON.stringify({ type: "launched" })}\n${JSON.stringify({ type: "started", key: "v2:a", agentId: "x", label: "#7 Add a coupon field", phase: "Build" })}\n`,
     );
-    const at = Date.parse("2026-10-29T09:14:00.000Z"); // 9.5 min after pipe7's last step, 11 min after pipe8's
-    const desk = (id: string) => deskById(board.desks(at), id);
-    expect(await until(() => desk("agent:pipe8")?.idleMinutes === 11)).toBe(true);
-    expect(desk("agent:pipe8")).toMatchObject({ role: "pipeline agent", ticket: "#8", state: "idle", minutes: 1 });
-    expect(desk("agent:pipe7")).toMatchObject({ state: "working" });
-  });
-
-  it("gives a pipeline's helper agent (no ticket number in its label) exactly one desk", async () => {
-    const { board } = await logs.open();
-    const { run } = logs.paths();
     writeFileSync(
-      join(run, "agent-help1.jsonl"),
+      join(run, "agent-x.jsonl"),
       logs.line({
         isSidechain: true,
-        agentId: "help1",
+        agentId: "x",
         type: "assistant",
-        timestamp: "2026-10-29T09:03:00.000Z",
+        timestamp: "2026-10-29T09:04:30.000Z",
         message: {
-          id: "msg_h1",
-          model: "claude-sonnet-5-5",
-          content: [{ type: "tool_use", id: "tu_h1", name: "Bash", input: { description: "List open tickets" } }],
-          usage: { input_tokens: 1, output_tokens: 2 },
+          id: "msg_x1",
+          model: "claude-opus-5-5",
+          content: [{ type: "tool_use", id: "tu_x1", name: "Bash", input: { command: "npm run ci" } }],
         },
       }),
     );
-    const journal = join(run, "journal.jsonl");
+    const { board } = await logs.open();
+    // A step written after the workflow files: once it shows, the watcher has looked at every log at least once more.
     appendFileSync(
-      journal,
-      `${JSON.stringify({ type: "started", key: "v2:h", agentId: "help1", label: "rank open tickets", phase: "Plan" })}\n`,
+      join(logs.paths().subagents, "agent-bg1.jsonl"),
+      logs.line({
+        isSidechain: true,
+        agentId: "bg1",
+        type: "assistant",
+        timestamp: "2026-10-29T09:04:40.000Z",
+        message: {
+          id: "msg_b9",
+          model: "claude-sonnet-5-5",
+          content: [
+            { type: "tool_use", id: "tu_b9", name: "Read", input: { file_path: `${logs.base()}/docs-site/faq.md` } },
+          ],
+        },
+      }),
     );
-    const helpers = () => (board.desks(NOW).list ?? []).filter((d) => d.id === "agent:help1");
-    expect(await until(() => helpers()[0]?.stepCount === 1)).toBe(true);
-    expect(helpers()).toEqual([
-      {
-        id: "agent:help1",
-        title: "rank open tickets",
-        role: "pipeline agent",
-        project: "shop-app",
-        model: "claude-sonnet-5-5",
-        state: "working",
-        steps: ["List open tickets"],
-        stepCount: 1,
-        costUsd: null,
-        minutes: 2, // still active: from its first line (09:03:00) until now
-      },
+    expect(await until(() => deskById(board.desks(NOW), "agent:bg1")?.stepCount === 4)).toBe(true);
+    expect(deskById(board.desks(NOW), "agent:x")).toBeUndefined();
+    expect(board.desks(NOW).list?.map((d) => d.id)).toEqual(["agent:bg1", `main:${SESSION}`]);
+    expect(board.running(NOW).agents.map((a) => a.role)).toEqual(["background agent", "main session"]);
+    expect(board.view("shop-app", NOW).agents).toEqual([]);
+    expect(board.view("docs-site", NOW).agents.map((a) => a.agentId)).toEqual(["bg1"]);
+    expect(board.projects(NOW).map((p) => [p.project, p.agents])).toEqual([
+      ["docs-site", 1],
+      ["shop-app", 0],
     ]);
-    appendFileSync(
-      journal,
-      `${JSON.stringify({ type: "result", key: "v2:h", agentId: "help1", result: { status: "done" } })}\n`,
-    );
-    expect(await until(() => helpers()[0]?.state === "idle")).toBe(true);
+    expect(board.agentLabel("x")).toBeNull();
   });
 
   it("shows the home folder as ~ in every step and title, wherever it stands", async () => {
@@ -244,12 +204,12 @@ describe("Motherboard pulls this computer's live agents", () => {
     const { board } = await logs.open();
     const later = board.desks(Date.parse("2026-10-29T09:20:00.000Z")).list ?? [];
     // The background agent's question is still open: it waits, however long it stays quiet.
-    expect(later.map((d) => d.state)).toEqual(["waits", "idle", "idle"]);
+    expect(later.map((d) => d.state)).toEqual(["waits", "idle"]);
     // Idle: the run time stops at the last step (09:04:00), and the idle time goes on.
     expect(later.find((d) => d.role === "main session")).toMatchObject({ minutes: 4, idleMinutes: 16 });
     // 6 h after the background agent's last step (09:03:30), but not yet after the session's (09:04:00).
     const next = board.desks(Date.parse("2026-10-29T15:03:45.000Z")).list ?? [];
-    expect(next.map((d) => d.role).sort()).toEqual(["main session", "pipeline agent"]);
+    expect(next.map((d) => d.role)).toEqual(["main session"]);
     expect(board.desks(Date.parse("2026-10-29T15:10:00.000Z")).list).toEqual([]);
   });
 });
@@ -275,7 +235,7 @@ describe("the payload is board-kit's Agents part", () => {
     const res = await serveDesks(() => board.desks(NOW));
     const view = (await res.json()) as Agents;
     expect(Object.keys(view)).toEqual(["list"]);
-    expect(view.list).toHaveLength(3);
+    expect(view.list).toHaveLength(2);
     const fields = fieldsOf(typeIn(CONTRACT, "Agent"));
     const known = fields.map((f) => f.name);
     const states = [...typeIn(CONTRACT, "AgentState").matchAll(/"(\w+)"/g)].map((m) => m[1]);

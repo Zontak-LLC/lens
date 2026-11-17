@@ -1,11 +1,11 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import type { NightEvent, RunEvent } from "../parser/index.js";
+import type { NightEvent } from "../parser/index.js";
 import { boardPage } from "../web/index.js";
 
 export type NightServer = {
   port: number;
   /** Streams one event to plain `/events` listeners and refreshes the boards that are open. */
-  publish: (event: NightEvent | RunEvent) => void;
+  publish: (event: NightEvent) => void;
   /** Pushes the open boards again (at most once per push window), for state that changes without an event. */
   refresh: () => void;
   close: () => Promise<void>;
@@ -138,7 +138,7 @@ export function startServer(port: number, source?: BoardSource): Promise<NightSe
       for (const res of pages.keys()) pushTo(res);
     }, PUSH_EVERY_MS);
   };
-  const publish = (event: NightEvent | RunEvent) => {
+  const publish = (event: NightEvent) => {
     if (closed) return;
     schedulePush();
     const frame = `event: ${event.kind}\ndata: ${JSON.stringify(event)}\n\n`;

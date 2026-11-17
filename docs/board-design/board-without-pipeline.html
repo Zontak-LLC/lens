@@ -1,0 +1,114 @@
+<!doctype html>
+<!--
+  Mockup for issue 28 (pipelines removed: Forge runs and shows them now). The Board tab of one project's page with no
+  stations floor and no ticket stats. Kept: the header (title, where, the usage meters, the LIVE light, the Sentinel
+  link), the Live site strip, the NOW strip, the From Sentinel lane and the Background agents section. The footer keeps
+  only the "read only" note. Static and self-contained (the same palette as src/web/style.ts); all data is invented.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lens · shop-app (mockup: board without pipeline)</title>
+<style>
+:root {
+  --bg: #16181d; --panel: #1a1d23; --raise: #22262e; --term: #14161a; --line: #2b3038; --line-strong: #3a404a;
+  --fg: #d4d7dd; --strong: #eceef2; --muted: #8b919c; --faint: #6b717c;
+  --live: #7aa2f7; --done: #8cc89b; --bad: #e5848a; --warn: #e5b567; --warn-soft: rgba(229,181,103,.12);
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--sans); padding: 18px 16px 20px; }
+.wrap { max-width: 1440px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+h1, h2, h3 { margin: 0; }
+.eyebrow { font: 600 10px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; }
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand h1 { font: 700 1.6rem/1.1 var(--sans); color: var(--strong); }
+.where { margin-top: 3px; font: 12.5px var(--mono); color: var(--muted); }
+.stats { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; }
+.meters { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.meter { display: inline-flex; align-items: center; gap: 7px; font: 600 11px var(--mono); }
+.segs { display: inline-flex; gap: 2px; }
+.segs i { width: 6px; height: 13px; border-radius: 1px; background: var(--line-strong); }
+.meter .segs i.on { background: var(--live); }
+.meter.amber .segs i.on { background: var(--warn); } .meter.amber .val { color: var(--warn); }
+.conn { display: inline-flex; align-items: center; gap: 8px; padding: 5px 11px; border-radius: 6px; background: var(--panel); border: 1px solid var(--line); font: 600 11px var(--mono); letter-spacing: .12em; color: var(--live); }
+.led { width: 9px; height: 9px; border-radius: 50%; background: var(--live); }
+.nwlink { font: 600 12px var(--mono); color: var(--live); text-decoration: none; }
+.sitelight { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--done); }
+.livesite { display: flex; gap: 14px; align-items: center; padding: 8px 14px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--done); font-size: 13px; }
+.livesite b { color: var(--strong); } .livesite .rel { color: var(--muted); font: 12px var(--mono); }
+.nowbar { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--live); }
+.nowbar .tag { font: 700 11px var(--mono); letter-spacing: .12em; color: var(--live); }
+.nowbar .what { font-weight: 600; color: var(--strong); }
+.nowbar .meta { margin-left: auto; font: 13px var(--mono); color: var(--muted); }
+.nowbar.alert { border-left-color: var(--warn); background: var(--warn-soft); }
+.nowbar.alert .tag, .nowbar.alert .what { color: var(--warn); }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
+.tabs span { padding: 8px 14px; font: 600 13px var(--sans); color: var(--muted); }
+.tabs span.on { color: var(--strong); border-bottom: 2px solid var(--live); }
+.agents, .fromwatch { padding: 12px 14px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); }
+.agents h2, .fromwatch h2 { font: 600 11px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+.agents h2 .count { margin-left: 10px; color: var(--live); }
+.agent { display: flex; align-items: center; gap: 10px; padding: 5px 0; border-top: 1px solid var(--line); font-size: 13px; }
+.agent .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line-strong); }
+.agent.live .dot { background: var(--live); }
+.agent b { color: var(--strong); font-weight: 600; }
+.agent .step { color: var(--muted); font: 12px var(--mono); }
+.agent .when { margin-left: auto; color: var(--faint); font: 11.5px var(--mono); }
+.wcard { padding: 10px 12px; border-radius: 8px; background: var(--raise); border: 1px solid var(--line); border-left: 3px solid var(--warn); max-width: 340px; }
+.wcard .name { color: var(--strong); font-weight: 600; }
+.keys { display: flex; font: 12px var(--mono); color: var(--muted); border-top: 1px solid var(--line); padding-top: 8px; }
+.keys-note { margin-left: auto; }
+.note { font: 12px var(--mono); color: var(--faint); border: 1px dashed var(--line); border-radius: 8px; padding: 8px 12px; }
+.empty { color: var(--muted); padding: 24px; border: 1px dashed var(--line); border-radius: 8px; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <p class="note">Mockup (issue 28): the five-station floor, its belt, the ticket dialog, the key hints and the Done,
+    Merged, Skipped, Avg, Est. finish and On shift stats are gone. Everything else is as today.</p>
+
+  <header class="top">
+    <div class="brand"><span class="led"></span><div><h1>Lens · shop-app</h1><div class="where">demo/shop-app · ~/Projects/shop-app · coupon</div></div></div>
+    <div class="stats">
+      <div class="meters">
+        <span class="meter ok"><span class="eyebrow">5 h</span><span class="segs"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="val">42% · resets 14:00</span></span>
+        <span class="meter amber"><span class="eyebrow">Week</span><span class="segs"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></span><span class="val">78%</span></span>
+      </div>
+      <span class="conn"><span class="led"></span><span>LIVE</span></span>
+      <span class="nwlink">→ Sentinel</span>
+    </div>
+  </header>
+
+  <div class="livesite"><span class="sitelight"></span><b>Live site</b><span>all checks green</span><span class="rel">release 2026.11.17-2</span></div>
+
+  <div class="nowbar"><span class="tag">NOW</span><span class="what">Add a coupon field to the cart · Editing src/cart.ts · 1 agent working</span><span class="meta"><b>4m 12s</b></span></div>
+  <div class="nowbar alert"><span class="tag">STOPPED</span><span class="what">Paused: usage limit since 09:04 · resets 14:00 (in 4 h 56 min). Nothing is lost; it can continue after the reset.</span></div>
+  <p class="note">The NOW strip, as above: the newest trouble in amber when there is one, otherwise the newest step.</p>
+
+  <nav class="tabs"><span class="on">Board</span><span>Terminal</span><span>Timeline</span></nav>
+
+  <section class="fromwatch" aria-label="From Sentinel">
+    <h2>From Sentinel</h2>
+    <div class="wcard"><div class="name">Checkout page answers slowly</div></div>
+  </section>
+
+  <section class="agents" aria-label="Background agents">
+    <h2>Background agents<span class="count">1 agent working</span></h2>
+    <div class="agent live"><span class="dot"></span><b>Docs: coupon field</b><span class="step">Editing guide.md</span><span class="when">09:03</span></div>
+    <div class="agent"><span class="dot"></span><b>Tidy the changelog</b><span class="step">finished 08:41</span><span class="when">08:41</span></div>
+  </section>
+  <p class="note">With no background agents, the section shows its empty text:</p>
+  <section class="agents" aria-label="Background agents (empty)">
+    <h2>Background agents</h2>
+    <p class="empty">No background agent in this project yet.</p>
+  </section>
+
+  <footer class="keys"><span class="keys-note">read only · nothing leaves this computer</span></footer>
+</main>
+</body>
+</html>

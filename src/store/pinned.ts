@@ -18,7 +18,7 @@ export function watchSiteOf(pinned: Pinned[], project: string, home: string): st
 
 /** A repository next to the pinned ones is added by itself when Claude worked in it this recently. */
 export const AUTO_DAYS = 30;
-/** A project with a step this recently counts as busy even when no pipeline or agent is running. */
+/** A project with a step this recently counts as busy even when no agent is running. */
 const BUSY_MS = 10 * 60_000;
 
 export const expand = (path: string, home: string): string =>
@@ -71,7 +71,7 @@ export function projectTiles(rows: ProjectRow[], pinned: Pinned[], o: Options): 
   const byProject = new Map(rows.map((r) => [r.project, r]));
   const hidden = new Set(pinned.filter((p) => p.hide).map((p) => basename(expand(p.path, o.home))));
   const tiles = new Map<string, Tile>();
-  const busy = (r: ProjectRow) => r.running > 0 || r.agents > 0 || o.nowMs - Date.parse(r.lastAt) <= BUSY_MS;
+  const busy = (r: ProjectRow) => r.agents > 0 || o.nowMs - Date.parse(r.lastAt) <= BUSY_MS;
   const add = (r: ProjectRow, name: string, isPinned: boolean) =>
     tiles.set(r.project, {
       ...r,
@@ -84,7 +84,7 @@ export function projectTiles(rows: ProjectRow[], pinned: Pinned[], o: Options): 
     if (p.hide) continue;
     const folder = expand(p.path, o.home);
     const key = basename(folder) || folder;
-    const row = byProject.get(key) ?? { project: key, folder, lastAt: "", running: 0, agents: 0, open: 0 };
+    const row = byProject.get(key) ?? { project: key, folder, lastAt: "", agents: 0 };
     add({ ...row, folder }, p.name, true);
   }
   const projectsDir = join(o.home, "Projects");

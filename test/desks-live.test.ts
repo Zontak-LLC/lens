@@ -40,15 +40,15 @@ describe("a desk's tokens stay true when logs are read again", () => {
   });
 });
 
-describe("a pipeline agent whose session is quiet or stopped", () => {
+describe("a background agent whose session is quiet", () => {
   it("gets its desk when its session's log was quiet at start (followed from its end)", async () => {
     const old = new Date(Date.now() - 3600_000);
     utimesSync(logs.paths().session, old, old);
     const { board } = logs.start();
-    const pipeline = () => deskOf(board.desks(NOW), "pipeline agent");
-    expect(await until(() => pipeline()?.stepCount === 3)).toBe(true);
+    const background = () => deskOf(board.desks(NOW), "background agent");
+    expect(await until(() => background()?.stepCount === 3)).toBe(true);
     expect(deskOf(board.desks(NOW), "main session")).toBeUndefined();
-    expect(pipeline()).toMatchObject({ id: "agent:pipe7", project: "shop-app", state: "working" });
+    expect(background()).toMatchObject({ id: "agent:bg1", project: "docs-site", state: "waits" });
   });
 
   it("files agents in a linked worktree under the repo, not the worktree's folder", async () => {
@@ -56,9 +56,7 @@ describe("a pipeline agent whose session is quiet or stopped", () => {
     const tree = join(base, "dayshift-work", "shop-app-R-7");
     mkdirSync(tree, { recursive: true });
     writeFileSync(join(tree, ".git"), `gitdir: ${base}/shop-app/.git/worktrees/shop-app-R-7\n`);
-    const { session, run, subagents } = logs.paths();
-    const pipe = join(run, "agent-pipe7.jsonl");
-    writeFileSync(pipe, readFileSync(pipe, "utf8").replaceAll(`"cwd":"${base}/shop-app"`, `"cwd":"${tree}"`));
+    const { session, subagents } = logs.paths();
     // A background agent whose steps name no path: only its cwd says where it works.
     writeFileSync(
       join(subagents, "agent-bg2.jsonl"),
@@ -79,27 +77,8 @@ describe("a pipeline agent whose session is quiet or stopped", () => {
     utimesSync(session, old, old);
     const { board } = logs.start();
     const desk = (id: string) => deskById(board.desks(NOW), id);
-    expect(await until(() => desk("agent:pipe7")?.stepCount === 3 && desk("agent:bg2")?.stepCount === 1)).toBe(true);
-    expect(desk("agent:pipe7")?.project).toBe("shop-app");
+    expect(await until(() => desk("agent:bg2")?.stepCount === 1)).toBe(true);
     expect(desk("agent:bg2")?.project).toBe("shop-app");
-  });
-
-  it("waits for the owner when its session hits a usage limit, until the session goes on", async () => {
-    const { board } = await logs.open();
-    const pipeline = () => deskOf(board.desks(NOW), "pipeline agent");
-    expect(pipeline()?.state).toBe("working");
-    appendFileSync(logs.paths().session, logs.limitLine("2026-10-29T09:04:30.000Z"));
-    expect(await until(() => pipeline()?.state === "waits")).toBe(true);
-    expect(pipeline()?.steps?.at(-1)).toBe(STOPPED);
-    appendFileSync(
-      logs.paths().session,
-      logs.line({
-        type: "assistant",
-        timestamp: "2026-10-29T09:04:40.000Z",
-        message: { id: "msg_m4", model: "claude-opus-5-5", content: [{ type: "text", text: "Going on." }] },
-      }),
-    );
-    expect(await until(() => pipeline()?.state === "working")).toBe(true);
   });
 });
 
@@ -197,65 +176,30 @@ describe("waits for you", () => {
     expect(background()?.steps?.at(-1)).toBe(STOPPED);
   });
 
-  it("stops waiting on a ticket's open question once the journal says the agent finished", async () => {
+  it("stops waiting on a background agent's own usage limit at its next real step", async () => {
     const { board } = await logs.open();
-    const { run } = logs.paths();
-    const pipeline = () => deskById(board.desks(NOW), "agent:pipe7");
+    answer();
+    const log = join(logs.paths().subagents, "agent-bg1.jsonl");
+    const background = () => deskById(board.desks(NOW), "agent:bg1");
+    expect(await until(() => background()?.state === "working")).toBe(true);
+    appendFileSync(log, logs.limitLine("2026-10-29T09:04:30.000Z", { isSidechain: true, agentId: "bg1" }));
+    expect(await until(() => background()?.state === "waits")).toBe(true);
+    expect(background()?.steps?.at(-1)).toBe(STOPPED);
     appendFileSync(
-      join(run, "agent-pipe7.jsonl"),
-      logs.line({
-        isSidechain: true,
-        agentId: "pipe7",
-        type: "assistant",
-        timestamp: "2026-10-29T09:04:40.000Z",
-        message: {
-          id: "msg_p4",
-          model: "claude-opus-5-5",
-          content: [{ type: "tool_use", id: "tu_p4", name: "AskUserQuestion", input: { question: "Which coupon?" } }],
-        },
-      }),
-    );
-    expect(await until(() => pipeline()?.state === "waits")).toBe(true);
-    appendFileSync(
-      join(run, "journal.jsonl"),
-      `${JSON.stringify({ type: "result", key: "v2:a", agentId: "pipe7", result: { status: "done" } })}\n`,
-    );
-    expect(await until(() => pipeline()?.state === "idle")).toBe(true);
-  });
-
-  it("stops waiting on a helper's own usage limit once the journal says it finished", async () => {
-    const { board } = await logs.open();
-    const { run } = logs.paths();
-    const log = join(run, "agent-help1.jsonl");
-    writeFileSync(
       log,
       logs.line({
         isSidechain: true,
-        agentId: "help1",
+        agentId: "bg1",
         type: "assistant",
-        timestamp: "2026-10-29T09:04:10.000Z",
+        timestamp: "2026-10-29T09:04:50.000Z",
         message: {
-          id: "msg_h1",
+          id: "msg_b6",
           model: "claude-sonnet-5-5",
-          content: [{ type: "tool_use", id: "tu_h1", name: "Bash", input: { command: "ls" } }],
+          content: [{ type: "tool_use", id: "tu_b6", name: "Bash", input: { command: "ls" } }],
         },
       }),
     );
-    const journal = join(run, "journal.jsonl");
-    appendFileSync(
-      journal,
-      `${JSON.stringify({ type: "started", key: "v2:h", agentId: "help1", label: "rank open tickets", phase: "Plan" })}\n`,
-    );
-    const helper = () => deskById(board.desks(NOW), "agent:help1");
-    expect(await until(() => helper()?.state === "working")).toBe(true);
-    appendFileSync(log, logs.limitLine("2026-10-29T09:04:30.000Z", { isSidechain: true, agentId: "help1" }));
-    expect(await until(() => helper()?.state === "waits")).toBe(true);
-    expect(helper()?.steps?.at(-1)).toBe(STOPPED);
-    appendFileSync(
-      journal,
-      `${JSON.stringify({ type: "result", key: "v2:h", agentId: "help1", result: { status: "done" } })}\n`,
-    );
-    expect(await until(() => helper()?.state === "idle")).toBe(true);
-    expect(helper()?.steps).not.toContain(STOPPED);
+    expect(await until(() => background()?.state === "working")).toBe(true);
+    expect(background()?.steps).not.toContain(STOPPED);
   });
 });

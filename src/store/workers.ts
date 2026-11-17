@@ -60,7 +60,7 @@ export class Workers {
     return this.all.has(agentId);
   }
 
-  /** Applies one event of an agent that is not part of a pipeline; true when something changed. */
+  /** Applies one event of a background agent; true when something changed. */
   apply(e: NightEvent, agentId: string): boolean {
     let w = this.all.get(agentId);
     if (!w) {
@@ -122,11 +122,11 @@ export class Workers {
   }
 
   /** The agents worth showing (they took a step recently), each with its place. */
-  live(nowMs: number, skip: (agentId: string) => boolean): { w: Worker; place: Place }[] {
+  live(nowMs: number): { w: Worker; place: Place }[] {
     const out: { w: Worker; place: Place }[] = [];
     for (const w of this.all.values()) {
       const at = Date.parse(w.lastAt);
-      if (!w.lastAt || Number.isNaN(at) || nowMs - at > KEEP_MS || skip(w.agentId)) continue;
+      if (!w.lastAt || Number.isNaN(at) || nowMs - at > KEEP_MS) continue;
       const place = this.placeOf(w);
       if (place) out.push({ w, place });
     }
@@ -134,8 +134,8 @@ export class Workers {
   }
 
   /** One project's agents, the active ones first, then the newest. */
-  rows(project: string, nowMs: number, skip: (agentId: string) => boolean = () => false): AgentRow[] {
-    return this.live(nowMs, skip)
+  rows(project: string, nowMs: number): AgentRow[] {
+    return this.live(nowMs)
       .filter(({ place }) => place.project === project)
       .map(({ w, place }) => {
         const active = !w.ended && nowMs - Date.parse(w.lastAt) <= QUIET_MS;
@@ -159,9 +159,9 @@ export class Workers {
   }
 
   /** The projects agents work in, with how many are active and when the newest took a step. */
-  projects(nowMs: number, skip: (agentId: string) => boolean = () => false) {
+  projects(nowMs: number) {
     const out = new Map<string, { folder: string; lastAt: string; agents: number }>();
-    for (const { w, place } of this.live(nowMs, skip)) {
+    for (const { w, place } of this.live(nowMs)) {
       const row = out.get(place.project) ?? { folder: place.folder, lastAt: "", agents: 0 };
       if (w.lastAt > row.lastAt) Object.assign(row, { lastAt: w.lastAt, folder: place.folder });
       if (!w.ended && nowMs - Date.parse(w.lastAt) <= QUIET_MS) row.agents++;

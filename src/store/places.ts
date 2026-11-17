@@ -34,27 +34,12 @@ export function placeStep(
 
 export type NowRow = { who: string; what: string; at: string };
 
-/** What is happening now: the sessions' own steps, the pipeline's helper steps and its tickets in progress. */
-export function nowRows(
-  sessions: { title: string | null; places: Map<string, Spot> }[],
-  run: {
-    helpers: Map<string, { label: string; step: string | null; lastAt: string; active: boolean }>;
-    tickets: Map<number, { number: number; station: string; step: string | null; finishedAt: string | null }>;
-  } | null,
-  project: string,
-): NowRow[] {
+/** What is happening now: the sessions' own steps in this project. */
+export function nowRows(sessions: { title: string | null; places: Map<string, Spot> }[], project: string): NowRow[] {
   const now: NowRow[] = [];
   for (const s of sessions) {
     const spot = s.places.get(project); // only the steps that worked in THIS project
     if (spot?.step) now.push({ who: s.title ?? "Session", what: spot.step, at: spot.lastAt });
-  }
-  for (const h of run?.helpers.values() ?? []) {
-    if (h.active) now.push({ who: h.label, what: h.step ?? "Starting", at: h.lastAt });
-  }
-  for (const t of run?.tickets.values() ?? []) {
-    if (t.station === "working" || t.station === "checking") {
-      now.push({ who: `#${t.number}`, what: t.step ?? "Starting", at: t.finishedAt ?? "" });
-    }
   }
   return now;
 }

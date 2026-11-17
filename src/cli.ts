@@ -5,7 +5,7 @@ import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import { startEngine } from "./engine.js";
 import { startMeter } from "./meter.js";
-import type { NightEvent, RunEvent } from "./parser/index.js";
+import type { NightEvent } from "./parser/index.js";
 import { startServer } from "./server/index.js";
 import { DEFAULT_KEEP_DAYS, expand, loadPinned, projectTiles, repoOf, watchSiteOf } from "./store/index.js";
 import { terminalPrinter } from "./terminal.js";
@@ -31,7 +31,7 @@ async function start(): Promise<void> {
   const root = process.env.NIGHTSHIFT_LOGS || join(homedir(), ".claude", "projects");
   const dataDir = process.env.NIGHTSHIFT_DATA || join(homedir(), ".nightshift");
   const keepDays = Number(process.env.NIGHTSHIFT_KEEP_DAYS) || DEFAULT_KEEP_DAYS;
-  let publish: (event: NightEvent | RunEvent) => void = () => {};
+  let publish: (event: NightEvent) => void = () => {};
   const print = terminalPrinter((id) => engine.board.agentLabel(id));
   const engine = startEngine({
     root,
@@ -40,10 +40,8 @@ async function start(): Promise<void> {
     staleMs: settingMs(process.env.NIGHTSHIFT_STALE_MS, STALE_MS),
     onNew: (event) => {
       publish(event);
-      if (!("runId" in event)) {
-        const line = print(event);
-        if (line) console.info(line);
-      }
+      const line = print(event);
+      if (line) console.info(line);
     },
     onError: (error) => console.error(`nightshift: ${error instanceof Error ? error.message : String(error)}`),
   });

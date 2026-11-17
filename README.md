@@ -2,7 +2,7 @@
 
 A live screen for your Claude Code agents: what they are doing right now, and what they did overnight.
 
-![The Lens board for a demo project: the NOW strip, the pipeline's tickets by station, and the background agents](docs/screenshot.png)
+![The Lens board for a demo project: the usage meters, the NOW strip and the background agents](docs/screenshot.png)
 
 > Status: works day to day: Board, Terminal and Timeline tabs, usage meter, Sentinel link, `GET /agents`, `GET /api/agents`. Not on npm
 > yet. See [docs/SPEC.md](docs/SPEC.md).
@@ -96,7 +96,7 @@ Claude Code runs helpers ("subagents") in the background. Lens follows their log
 (`<session>/subagents/agent-*.jsonl`, with the name from `agent-*.meta.json`). Each helper is filed under the project
 it **really works in**, not the folder its parent session started in: the git repository most of its tool calls touch
 (`cd`, `git -C`, file paths). A linked worktree counts as its main repository and is marked "(worktree)". With no
-clear repository it stays under its parent's project. The board shows them under the line, the NOW strip says
+clear repository it stays under its parent's project. The Board tab lists them under the NOW strip, which says
 "3 agents working", the Terminal tab streams their steps tagged with the agent's name, and the Timeline draws a bar
 for each. The start page lists projects that only helpers touched.
 

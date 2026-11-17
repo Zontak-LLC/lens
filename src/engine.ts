@@ -1,5 +1,5 @@
 // The engine: the watcher feeding the history and the board. The CLI adds the server and the terminal on top.
-import type { NightEvent, RunEvent } from "./parser/index.js";
+import type { NightEvent } from "./parser/index.js";
 import { Board, DEFAULT_KEEP_DAYS, History } from "./store/index.js";
 import { backlogTracker, type Health, healthOf, newestChange, watchLogs } from "./watcher/index.js";
 
@@ -13,7 +13,7 @@ export type EngineOptions = {
   /** A log with bytes left unread (at the same read place) for this long = stale (default 30 minutes). */
   staleMs?: number;
   /** A new event (never one seen before, never one replayed from the history). */
-  onNew?: (event: NightEvent | RunEvent) => void;
+  onNew?: (event: NightEvent) => void;
   onError?: (error: unknown) => void;
 };
 export type Engine = {
@@ -49,7 +49,7 @@ export function startEngine(options: EngineOptions): Engine {
   const board = new Board();
   history.replay((event) => board.apply(event));
   history.prune(keepDays);
-  const take = (event: NightEvent | RunEvent, key: string) => {
+  const take = (event: NightEvent, key: string) => {
     if (!history.add(event, key)) return; // read before: the board already has it
     board.apply(event);
     onNew?.(event);
@@ -58,7 +58,6 @@ export function startEngine(options: EngineOptions): Engine {
     root,
     ...(everyMs ? { everyMs } : {}),
     onEvent: (event, origin) => take(event, origin.key),
-    onRun: (event, origin) => take(event, origin.key),
     resume: (path) => history.file(path),
     onRead: (path, mark) => history.saveFile(path, mark),
     onLines: () => {

@@ -1,6 +1,6 @@
 import type { Stats } from "node:fs";
 import { open, readFile, stat } from "node:fs/promises";
-import { type NightEvent, parseAgentMeta, parseJournalLine, parseLine, type RunEvent } from "../parser/index.js";
+import { type NightEvent, parseAgentMeta, parseLine } from "../parser/index.js";
 import { type LogFile, logFiles } from "./files.js";
 import { advance, committed, START, startAt, type TailState } from "./tail.js";
 
@@ -19,8 +19,6 @@ export type WatchOptions = {
   /** A file bigger than this, when first seen, is read from its last `tailBytes` only (old history is not "now"). */
   tailBytes?: number;
   onEvent: (event: NightEvent, origin: Origin) => void;
-  /** A workflow's journal changed: an agent started or finished, or the run's ticket queue arrived. */
-  onRun?: (event: RunEvent, origin: Origin) => void;
   /** Where a file got to last time: carry on from there (same file, not shorter) instead of guessing from its age. */
   resume?: (path: string) => FileMark | null;
   /** A file was read up to `offset` (the end of its last whole line): remember it. Called after its events. */
@@ -40,7 +38,7 @@ export type WatchOptions = {
 
 type Followed = { tail: TailState; ino: number; epoch: number };
 
-/** A log to follow. A journal is a workflow's ticket list; everything else is a session or agent conversation. */
+/** What one look at a session or agent log found: its complete new lines and where each one ends. */
 type Read = {
   path: string;
   ino: number;
@@ -84,7 +82,6 @@ export function watchLogs(opts: WatchOptions): () => void {
     recentMs = 10 * 60_000,
     tailBytes = 256_000,
     onEvent,
-    onRun,
     onSkipped,
     onError,
     resume,
@@ -126,18 +123,12 @@ export function watchLogs(opts: WatchOptions): () => void {
     }
   }
 
-  function emit(read: Read, journal: LogFile["journal"]): void {
+  function emit(read: Read): void {
     let skipped = 0;
     const at = `${read.path}#${read.ino}.${read.epoch}`;
     read.lines.forEach((line, i) => {
       if (stopped) return;
       const key = (n: number) => ({ key: `${at}@${read.ends[i]}.${n}` });
-      if (journal) {
-        const r = parseJournalLine(line, journal);
-        skipped += r.skipped;
-        for (const [n, e] of r.events.entries()) safely(() => onRun?.(e, key(n)));
-        return;
-      }
       const r = parseLine(line);
       skipped += r.skipped;
       for (const [n, e] of r.events.entries()) safely(() => onEvent(e, key(n)));
@@ -156,22 +147,21 @@ export function watchLogs(opts: WatchOptions): () => void {
   }
 
   /** Where to read from and which epoch the file is in: carried on, read from the top, or a first look. */
-  function placeFor(known: Followed | null, info: Stats, journal: boolean): { tail: TailState; epoch: number } {
+  function placeFor(known: Followed | null, info: Stats): { tail: TailState; epoch: number } {
     // A different file under the same name (replaced, not appended to), or one that shrank: read it from the top.
     const replaced = known && (known.ino !== info.ino || info.size < known.tail.offset);
     if (known && !replaced) return { tail: known.tail, epoch: known.epoch };
     if (known) return { tail: START, epoch: known.epoch + 1 };
-    // A journal is the run's whole ticket list (small): always read it from its start.
-    return { tail: journal ? START : firstTail(info.size, info.mtimeMs), epoch: 0 };
+    return { tail: firstTail(info.size, info.mtimeMs), epoch: 0 };
   }
 
   /** Reads what one file gained since the last look and returns its complete new lines. */
-  async function newLines({ path, journal }: LogFile): Promise<Read | null> {
+  async function newLines({ path }: LogFile): Promise<Read | null> {
     const info = await stat(path).catch(() => null);
     if (!info) return null;
     const known = files.get(path) ?? remembered(path, info.ino, info.size);
     if (known && known.ino === info.ino && info.size === known.tail.offset) return null;
-    const { tail, epoch } = placeFor(known, info, Boolean(journal));
+    const { tail, epoch } = placeFor(known, info);
     const to = Math.min(info.size, tail.offset + chunkBytes);
     const chunk = await readRange(path, tail.offset, to).catch((error: unknown) => {
       reportOnce(path, error); // and try again on the next look
@@ -207,7 +197,7 @@ export function watchLogs(opts: WatchOptions): () => void {
     const read = await newLines(file);
     if (!read) return;
     if (read.lines.length) safely(() => onLines?.(read.lines.length));
-    emit(read, file.journal);
+    emit(read);
     const mark = read.mark;
     if (mark && !stopped) safely(() => onRead?.(read.path, mark));
   }
