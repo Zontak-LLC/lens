@@ -1,17 +1,7 @@
 // Lens froze on 2026-11-01 and nobody noticed: the board stopped at "last active Nov 1" while /health still said ok.
 // These scenarios keep both halves fixed: the watcher keeps reading whatever one file does, and /health tells the truth.
 import { execFileSync } from "node:child_process";
-import {
-  appendFileSync,
-  chmodSync,
-  closeSync,
-  mkdirSync,
-  mkdtempSync,
-  openSync,
-  rmSync,
-  utimesSync,
-  writeFileSync,
-} from "node:fs";
+import { appendFileSync, chmodSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -109,29 +99,58 @@ describe("a very long session keeps growing while Lens watches", () => {
     expect(edits(events)).not.toContain("Editing x.ts");
   });
 
-  it("passes over a file whose read never comes back, says so, and goes on with the rest", async () => {
+  it("skips a pipe where a file should be, says so once, and goes on with the rest", async () => {
     const project = setup();
     const subagents = join(project, "s1", "subagents");
     mkdirSync(subagents, { recursive: true });
     const pipe = join(subagents, "agent-a1.meta.json");
-    execFileSync("mkfifo", [pipe]); // reading a pipe with no writer blocks, like a read that never returns
+    execFileSync("mkfifo", [pipe]); // a pipe with no writer: a plain blocking read of it would never return
     const events: NightEvent[] = [];
     const errors: string[] = [];
     stops.push(
       watchLogs({
         root: dir,
         everyMs: 10,
-        stuckMs: 200,
         onEvent: (e) => events.push(e),
         onError: (e) => errors.push(e instanceof Error ? e.message : String(e)),
       }),
     );
-    // The new session's log is listed AFTER the stuck file (its folder sorts later), so a stuck look would hide it.
+    // The new session's log is listed AFTER the pipe (its folder sorts later), so a stuck look would hide it.
     mkdirSync(join(dir, "z-app"));
     writeFileSync(join(dir, "z-app", "s9.jsonl"), toolUse("t1", "after.ts"));
     expect(await until(() => edits(events).includes("Editing after.ts"))).toBe(true);
-    expect(errors.some((m) => m.includes("agent-a1.meta.json") && m.includes("no answer"))).toBe(true);
-    closeSync(openSync(pipe, "w")); // let the blocked read finish, so the test leaves no thread behind
+    await wait(100);
+    const said = errors.filter((m) => m.includes("agent-a1.meta.json"));
+    expect(said).toHaveLength(1); // once, not every look
+    expect(said[0]).toContain("not a regular file");
+  });
+
+  it("an agent description it cannot read yet is retried quietly, then shows", async () => {
+    const project = setup();
+    const subagents = join(project, "s1", "subagents");
+    mkdirSync(subagents, { recursive: true });
+    const meta = join(subagents, "agent-a2.meta.json");
+    writeFileSync(meta, JSON.stringify({ description: "Fix the header" }));
+    chmodSync(meta, 0o200); // Claude Code can write it; Lens cannot read it yet
+    const events: NightEvent[] = [];
+    const errors: string[] = [];
+    stops.push(
+      watchLogs({
+        root: dir,
+        everyMs: 10,
+        onEvent: (e) => events.push(e),
+        onError: (e) => errors.push(e instanceof Error ? e.message : String(e)),
+      }),
+    );
+    mkdirSync(join(dir, "z-app"));
+    writeFileSync(join(dir, "z-app", "s9.jsonl"), toolUse("t1", "after.ts"));
+    expect(await until(() => edits(events).includes("Editing after.ts"))).toBe(true);
+    await wait(100);
+    expect(errors.filter((m) => m.includes("agent-a2.meta.json"))).toEqual([]); // quiet: it is simply tried again
+    chmodSync(meta, 0o600);
+    const titled = () =>
+      events.some((e) => e.kind === "agent.title" && e.agentId === "a2" && e.title === "Fix the header");
+    expect(await until(titled)).toBe(true);
   });
 });
 

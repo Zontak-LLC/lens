@@ -270,6 +270,23 @@ Forge was Day Shift; the identifiers (`store/day-shift.ts`, `DayShiftAgents`) an
 - **Mockup:** `docs/board-design/no-sentinel-no-meter.html`.
 - Replaces: "Usage meter in the header" (2026-10-24) and "The link to Sentinel" (under Projects everywhere).
 
+## Logs are read with sync calls (2026-11-18)
+
+- **Why.** The Mac's error log had 843 "no answer after 120 s" lines while the libuv workers sat idle: a read's
+  wake-up was lost, not a thread held. Passing a stuck file over never helped, because the next reads waited the same
+  way. The listing (`watcher/files.ts`) was already sync and never got stuck.
+- **Choice.** `watcher/follow.ts` opens, fstats and reads each log with sync calls (`openSync` with
+  `O_RDONLY | O_NONBLOCK`, `fstatSync`, `readSync`), in one helper, `readRange`, used by the log reader and the agent
+  description reader. A path that is not a regular file (a pipe, a device) is reported once ("not a regular file")
+  and skipped; `O_NONBLOCK` keeps the open of a pipe with no writer from freezing Lens. A log read that fails is
+  reported once and keeps its place; an agent description that fails for other reasons (gone, not readable yet) is
+  retried quietly on the next look, as before. The 2-minute timeout and the passing-over of a stuck read are gone.
+- **Trade.** One look blocks the event loop while it reads: at most one `chunkBytes` (8 MB) local read per file, so
+  milliseconds; the first look after a long sleep can make `/health` and the pages answer a little later. A log on a
+  network or FUSE folder could still block a sync read; the watchdog (SIGKILL, entry below) stays the last resort.
+- **Not chosen.** A bigger `UV_THREADPOOL_SIZE` (the same jam, later) or a timeout race (it passes a read over but
+  never frees it).
+
 ## Stale = unread bytes; the watchdog kills itself (2026-11-17)
 
 - **Why.** Two bugs from the deep review. (1) False restarts: stale was "no line read for 30 minutes while a log's
@@ -319,9 +336,9 @@ Forge was Day Shift; the identifiers (`store/day-shift.ts`, `DayShiftAgents`) an
   replaced. A quiet computer is never stale. The body gives `lastLineAt` and `lastChangeAt` (ISO) so a monitor can say since when.
 - **The probe does not trust the watcher.** It lists and stats the logs with SYNC calls on the request (a few hundred
   stats, milliseconds), so a stuck background read cannot also hang the health answer. The watcher's listing uses the
-  same sync code (`watcher/files.ts`); only file reads stay async.
-- **No file can stop the others.** A file's read that has not come back after `stuckMs` (2 min) is reported once and
-  passed over until it does; a file that fails is reported once (not every second) and retried; at most `chunkBytes`
+  same sync code (`watcher/files.ts`); since 2026-11-18 the file reads are sync too ("Logs are read with sync calls").
+- **No file can stop the others.** Reads are sync since 2026-11-18, so a look always returns ("Logs are read with
+  sync calls", above); a file that fails is reported once (not every second) and retried; at most `chunkBytes`
   (8 MB) of one file are read per look, so a huge backlog is caught up over several looks and never held whole.
   A file that failed keeps the place chosen for it, so a retry never reads its old history as new.
 - **Known limit (no longer holds).** Since 2026-11-17 stale is per file: one log whose bytes stay unread for 30

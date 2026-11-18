@@ -10,12 +10,13 @@ before changing anything; update both in the same commit when a choice changes.
   (`tail.ts` works in BYTES and decodes only whole lines, so a read that ends inside a character never corrupts it;
   `follow.ts` walks `<root>/<project>/*.jsonl` and starts over when a file is replaced (new inode) or shrinks).
   On start, files quiet for 10 minutes are followed from their end (old history is not "now"); recent ones are read
-  (the last 256 KB of a big one); a file that appears later is read from its start. `files.ts` lists the logs (sync,
-  so it always returns); at most 8 MB of one file per look; a file that fails is reported once, one whose read has
-  not come back in 2 min is passed over until it does. `backlog.ts` + `health.ts`: stale = a followed log has had bytes past
+  (the last 256 KB of a big one); a file that appears later is read from its start. `files.ts` lists the logs and `follow.ts`
+  reads them with sync calls, so a look always returns (opened `O_NONBLOCK`; a pipe or other non-file is reported
+  once as "not a regular file" and skipped); at most 8 MB of one file per look; a file that fails is reported once.
+  `backlog.ts` + `health.ts`: stale = a followed log has had bytes past
   the watcher's read place (`onPlace`) for 30 min at the same place (a touched log is not work); its `watchdog` makes
-  the CLI write one line and SIGKILL itself on the first stale check (every minute; `process.exit` can hang behind
-  stuck file threads), so the service starts a fresh Lens.
+  the CLI write one line and SIGKILL itself on the first stale check (every minute; a plain `process.exit` is not trusted
+  to end a stuck process), so the service starts a fresh Lens.
 - `src/store/`: the board (state from events) and `history.ts`, the SQLite history (`node:sqlite`): every event under a
   key `<file>#<inode>.<epoch>@<line end>.<n>` (`INSERT OR IGNORE`, so a line read twice is stored once and not
   applied twice), plus each file's saved offset. The ONLY place that writes to disk. `src/engine.ts` wires it: replay

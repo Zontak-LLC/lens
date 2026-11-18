@@ -1,5 +1,5 @@
 // Lens restarted itself 39 times a week on one computer and 103 on another for nothing: Claude Code touches idle
-// logs, and "a log changed" counted as work. And once it did mean to restart, process.exit() hung for 13 hours.
+// logs, and "a log changed" counted as work. And once it did mean to restart, process.exit() got stuck for 13 hours.
 // These scenarios keep both fixed: stale means bytes that wait unread, and a stale Lens really dies.
 import { type ChildProcess, execFileSync, spawn } from "node:child_process";
 import {

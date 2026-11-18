@@ -1,4 +1,13 @@
-import { appendFileSync, mkdirSync, mkdtempSync, renameSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import {
+  appendFileSync,
+  mkdirSync,
+  mkdtempSync,
+  renameSync,
+  rmSync,
+  statSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -70,6 +79,46 @@ describe("a developer runs Claude Code while Night Shift watches", () => {
     expect(await until(() => events.filter((e) => e.kind === "tool.use").length === 2)).toBe(true);
     const summaries = events.flatMap((e) => (e.kind === "tool.use" ? [e.summary] : []));
     expect(summaries).toEqual(["Editing a.ts", "Editing b.ts"]);
+  });
+
+  it("follows a session log through 1,000 appends, whole lines and halves, with no read ever stuck", async () => {
+    dir = mkdtempSync(join(tmpdir(), "nightshift-"));
+    mkdirSync(join(dir, "demo-app"));
+    const log = join(dir, "demo-app", "s1.jsonl");
+    const summaries: string[] = [];
+    const keys: string[] = [];
+    const places: number[] = [];
+    const errors: unknown[] = [];
+    stop = watchLogs({
+      root: dir,
+      everyMs: 5,
+      onEvent: (e, origin) => {
+        if (e.kind !== "tool.use") return;
+        summaries.push(e.summary);
+        keys.push(origin.key);
+      },
+      onPlace: (_path, offset) => places.push(offset),
+      onError: (e) => errors.push(e),
+    });
+    const caughtUp = () => until(() => places.at(-1) === statSync(log).size, 5000);
+    for (let i = 0; i < 1_000; i++) {
+      const text = toolUse(`t${i}`, `f${i}.ts`);
+      if (i % 2 === 0) {
+        appendFileSync(log, text); // a whole line
+        continue;
+      }
+      const half = Math.floor(text.length / 2);
+      appendFileSync(log, text.slice(0, half)); // one line written in two halves
+      // Every 50 appends, let the watcher read the first half on its own before the rest arrives, then catch up.
+      if (i % 50 === 49) expect(await caughtUp()).toBe(true);
+      appendFileSync(log, text.slice(half));
+      if (i % 50 === 49) expect(await caughtUp()).toBe(true);
+    }
+    expect(await caughtUp()).toBe(true);
+    expect(summaries).toEqual(Array.from({ length: 1_000 }, (_, i) => `Editing f${i}.ts`)); // all, in write order
+    expect(new Set(keys).size).toBe(1_000);
+    expect(errors).toEqual([]);
+    expect(places.at(-1)).toBe(statSync(log).size);
   });
 
   it("does not replay old, quiet logs as if they were happening now", async () => {
