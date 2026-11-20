@@ -1,22 +1,11 @@
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
-import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseArgs, startBanner, usage } from "../src/usage.js";
+import { freePort } from "./free-port.js";
 import { OLD_NAMES } from "./old-names.js";
-
-/** A port nobody listens on right now. */
-const freePort = () =>
-  new Promise<number>((resolve) => {
-    const s = createServer();
-    s.listen(0, "127.0.0.1", () => {
-      const address = s.address();
-      const port = typeof address === "object" && address ? address.port : 0;
-      s.close(() => resolve(port));
-    });
-  });
 
 /** The first board (or project list, for "") the server pushes to a page. */
 async function firstFrame(port: number, project: string): Promise<unknown> {

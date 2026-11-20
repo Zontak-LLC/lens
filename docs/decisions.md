@@ -270,6 +270,19 @@ Forge was Day Shift; the identifiers (`store/day-shift.ts`, `DayShiftAgents`) an
 - **Mockup:** `docs/board-design/no-sentinel-no-meter.html`.
 - Replaces: "Usage meter in the header" (2026-10-24) and "The link to Sentinel" (under Projects everywhere).
 
+## Prompts stay out of the service log (2026-11-20)
+
+- **Why.** The command's output is the service log: whatever the terminal view prints ends up in a file. It printed
+  every prompt ("▸ asked: …"), so a log kept what a person typed to Claude, and the README sent that log to a file in
+  `/tmp`, which other people on the computer can read.
+- **What changed.** `src/terminal.ts` no longer prints prompts. The README runs Lens as a real service that starts it
+  again (the watchdog needs that): a macOS LaunchAgent (`KeepAlive`, log in `~/Library/Logs/lens.log`, mode 600) or
+  a systemd user unit (`Restart=always`, log in the user's own journal). `test/service-log.test.ts` runs the real
+  command on a log with a prompt and checks the prompt never reaches its output.
+- **What is kept.** Titles, steps, failed steps, trouble lines, pull requests and file names still print. The page's
+  Terminal and Board tabs still show prompts: they are served on 127.0.0.1 to this computer only, not written to a log.
+- **Trade.** Someone running Lens by hand no longer sees prompts in the terminal; the page shows them.
+
 ## Logs are read with sync calls (2026-11-18)
 
 - **Why.** The Mac's error log had 843 "no answer after 120 s" lines while the libuv workers sat idle: a read's

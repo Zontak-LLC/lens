@@ -26,8 +26,16 @@ describe("the README a stranger reads first", () => {
     "../nightwatch",
     "github.com/Zontak-LLC/nightwatch",
     "github.com/Zontak-LLC/nightshift",
+    "/tmp/lens.log",
+    "nohup",
   ])("does not say %s", (word) => {
     expect(README).not.toContain(word);
+  });
+
+  // A stale Lens kills itself, so the README's background setup must be a service that starts it again.
+  it("runs Lens in the background as a service that restarts it", () => {
+    expect(README).toContain("KeepAlive");
+    expect(README).toContain("Restart=always");
   });
 
   // The one place the old name is meant: README's note on why the command keeps it. Only that exact sentence is

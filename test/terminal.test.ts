@@ -16,6 +16,7 @@ describe("the terminal view", () => {
     expect(print({ kind: "tool.result", at, sessionId: "s", toolUseId: "t", ok: false })).toContain("failed");
     expect(print({ kind: "pr.link", at, sessionId: "s", number: 7, url: "https://x" })).toContain("#7");
     expect(print({ kind: "reply", at, sessionId: "s", text: "ok" })).toBeNull();
+    expect(print({ kind: "prompt", at, sessionId: "s", text: "my secret plan" })).toBeNull();
   });
 
   it("prints a title or a pull request once, even when the log repeats it", () => {
@@ -32,9 +33,10 @@ describe("the terminal view", () => {
     expect(print({ ...title, at: "", title: "No time" })).toMatch(/^ {8} {2}/);
   });
 
-  it("prints escape codes from a log as harmless marks, so a prompt cannot steer the terminal", () => {
+  it("prints escape codes from a log as harmless marks, so a session title cannot steer the terminal", () => {
     const print = terminalPrinter();
-    const out = print({ kind: "prompt", at: "", sessionId: "s", text: "hi \u001b]0;owned\u0007 \u001b[2J" }) ?? "";
+    const out =
+      print({ kind: "session.title", at: "", sessionId: "s", title: "hi \u001b]0;owned\u0007 \u001b[2J" }) ?? "";
     expect([...out].some((c) => (c.codePointAt(0) ?? 0) < 0x20)).toBe(false);
     expect(out).toContain("hi");
   });
