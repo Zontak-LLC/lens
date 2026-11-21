@@ -43,6 +43,12 @@ is made, in the same commit as the change. Rule 1 applies to every node: the rig
     tickets are rebuilt by replay, not kept in tables of their own that could drift from the events. Retention removes
     whole sessions quiet for 30 days (`NIGHTSHIFT_KEEP_DAYS`). If the file cannot be opened, Lens runs without
     history and says so.
+  - **The history is private (2026-11-21).** It holds prompts, file paths and tool steps from every session, and
+    another account on the computer must not read them. So each open (not only the first) sets the folder to 0700 and
+    `nightshift.db` and its `-wal`/`-shm` files to 0600: `mkdir`'s mode applies only to a new folder and the umask can
+    loosen it, so an older install is fixed on its next start. A chmod that fails is not skipped: opening the history
+    throws an error naming the path and the mode, and the log shows it (Lens then runs without history, as above).
+    Ruled out: setting the modes on first creation only (a loose install stays loose).
 - **A local web page**, plain TypeScript and CSS, no framework for v1. Runner-up: a menu-bar app (later stretch).
 
 ## Where does the code live?
