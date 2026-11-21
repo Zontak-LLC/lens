@@ -62,8 +62,8 @@ empty list and says so in the log. Times show in the browser's local time.
 Lens keeps what it saw in one SQLite file (`~/.nightshift/nightshift.db`). Stop and start it: the board comes back as
 it was, each log file is read on from where it stopped (a file that was replaced or cut short is read again from its
 top), and no step is shown or stored twice. Sessions that have been quiet for more than 30 days are removed, once an
-hour. The file holds your prompts' first lines and tool summaries: it stays on your computer, and the folder is private
-to you.
+hour. The file holds your prompts' first lines and tool summaries: it stays on your computer, and only your account can
+read `~/.nightshift`: each time Lens starts it sets the folder to 0700 and the history files to 0600.
 
 ## Background agents
 

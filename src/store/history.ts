@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { NightEvent } from "../parser/index.js";
@@ -38,16 +38,55 @@ export const DEFAULT_KEEP_DAYS = 30;
 /** Rows older versions stored from workflow journals (issue 28): never applied again. */
 const JOURNAL_KINDS = new Set(["run.launched", "run.queue", "agent.started", "agent.result"]);
 const DAY_MS = 86_400_000;
+/** The history holds prompts, paths and tool steps: no other account on the computer may read it. */
+const PRIVATE_DIR_MODE = 0o700;
+const PRIVATE_FILE_MODE = 0o600;
+const SIDE_FILES = ["-wal", "-shm"];
+
+/** Sets `mode` on `path`; throws an Error naming the path and the mode when it cannot. */
+function setMode(path: string, mode: number): void {
+  try {
+    chmodSync(path, mode);
+  } catch (error) {
+    const why = error instanceof Error ? error.message : String(error);
+    throw new Error(`cannot make ${path} private (mode ${mode.toString(8)}): ${why}`);
+  }
+}
+
+/**
+ * Makes the history folder 0700 and the database with its -wal/-shm files 0600 on every open, so an install made
+ * with looser modes (or under a loose umask) is fixed on its next start. A missing -wal/-shm file is skipped.
+ */
+function makePrivate(dbPath: string): void {
+  setMode(dirname(dbPath), PRIVATE_DIR_MODE);
+  setMode(dbPath, PRIVATE_FILE_MODE);
+  for (const side of SIDE_FILES) {
+    if (existsSync(dbPath + side)) setMode(dbPath + side, PRIVATE_FILE_MODE);
+  }
+}
 
 export class History {
   private readonly db: DatabaseSync;
   private closed = false;
 
+  /** Opens (or makes) the history at `path`; throws, naming the path, when its folder or files cannot be made private. */
   constructor(path: string) {
-    if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+    const isFile = path !== ":memory:";
+    if (isFile) mkdirSync(dirname(path), { recursive: true, mode: PRIVATE_DIR_MODE });
     this.db = new DatabaseSync(path);
-    if (path !== ":memory:") this.db.exec("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;");
+    if (isFile) this.openFile(path);
     this.db.exec(SCHEMA);
+  }
+
+  /** WAL for a file on disk, then the private modes; the database is closed again when they cannot be set. */
+  private openFile(path: string): void {
+    this.db.exec("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;");
+    try {
+      makePrivate(path);
+    } catch (error) {
+      this.db.close();
+      throw error;
+    }
   }
 
   /** Stores one event; false when this exact line was stored before (the caller then must not apply it again). */
