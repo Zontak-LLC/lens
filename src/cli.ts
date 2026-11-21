@@ -93,7 +93,7 @@ async function start(): Promise<void> {
       const unread = engine.unread();
       const file = unread ? hideHome(unread.path) : "a log";
       process.stderr.write(
-        `nightshift: ${file} has unread bytes since ${health.unreadSince} (last line read ${health.lastLineAt ?? "the start"}); killing this Lens so the service starts a fresh one\n`,
+        `nightshift: ${file} has unread bytes since ${health.unreadSince} (last line read ${health.lastLineAt ?? "the start"}); killing this Spyglass so the service starts a fresh one\n`,
         killSelf,
       );
     },

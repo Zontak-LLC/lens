@@ -71,7 +71,7 @@ export function startServer(port: number, source?: BoardSource): Promise<NightSe
   const server = createServer((req, res) => {
     res.on("error", () => drop(res)); // a page that went away mid-write is simply forgotten
     if (!fromThisComputer(req, actualPort)) {
-      res.writeHead(403, { "content-type": "text/plain" }).end("Lens only answers this computer");
+      res.writeHead(403, { "content-type": "text/plain" }).end("Spyglass only answers this computer");
       return;
     }
     let url: URL;

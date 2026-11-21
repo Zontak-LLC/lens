@@ -1,0 +1,97 @@
+<!doctype html>
+<!--
+  Mockup: the public name Spyglass on screen. Top: one tile of the start page under a header with the brand
+  "Spyglass". Below: one project's board, whose header reads "Spyglass · Demo App", then the NOW strip, the tabs and the
+  background agents. Only the name changes; layout and colours are the same as before. Static and self-contained (the
+  palette of src/web/style.ts); all data is invented.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Spyglass · demo-app (mockup: the new name)</title>
+<style>
+:root {
+  --bg: #16181d; --panel: #1a1d23; --raise: #22262e; --term: #14161a; --line: #2b3038; --line-strong: #3a404a;
+  --fg: #d4d7dd; --strong: #eceef2; --muted: #8b919c; --faint: #6b717c;
+  --live: #7aa2f7; --done: #8cc89b; --bad: #e5848a; --warn: #e5b567; --warn-soft: rgba(229,181,103,.12);
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--sans); padding: 18px 16px 20px; }
+.wrap { max-width: 1440px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+h1, h2 { margin: 0; }
+.label { font: 600 10px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--faint); margin-top: 18px; }
+.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; }
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand h1 { font: 700 1.6rem/1.1 var(--sans); color: var(--strong); }
+.where { margin-top: 3px; font: 12.5px var(--mono); color: var(--muted); }
+.stats { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; }
+.conn { display: inline-flex; align-items: center; gap: 8px; padding: 5px 11px; border-radius: 6px; background: var(--panel); border: 1px solid var(--line); font: 600 11px var(--mono); letter-spacing: .12em; color: var(--live); }
+.led { width: 9px; height: 9px; border-radius: 50%; background: var(--live); flex: none; }
+.conn .led { width: 8px; height: 8px; }
+.projects { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.project { display: grid; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; color: var(--fg); }
+.project b { font: 600 17px var(--sans); color: var(--strong); }
+.project span { font: 12.5px var(--mono); color: var(--muted); }
+.nowbar { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--live); }
+.nowbar .tag { font: 700 11px var(--mono); letter-spacing: .12em; color: var(--live); }
+.nowbar .what { font-weight: 600; color: var(--strong); }
+.nowbar .meta { margin-left: auto; font: 13px var(--mono); color: var(--muted); }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
+.tabs span { padding: 8px 14px; font: 600 13px var(--sans); color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs .on { color: var(--strong); border-bottom-color: var(--live); }
+.agents { padding: 12px 14px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); }
+.agents h2 { font: 600 11px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+.agents h2 .count { margin-left: 10px; color: var(--live); }
+.agent { display: flex; align-items: center; gap: 10px; padding: 5px 0; border-top: 1px solid var(--line); font-size: 13px; }
+.agent .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line-strong); }
+.agent.live .dot { background: var(--live); }
+.agent b { color: var(--strong); font-weight: 600; }
+.agent .step { color: var(--muted); font: 12px var(--mono); }
+.agent .when { margin-left: auto; color: var(--faint); font: 11.5px var(--mono); }
+.keys { display: flex; font: 12px var(--mono); color: var(--muted); border-top: 1px solid var(--line); padding-top: 8px; }
+.keys span { margin-left: auto; }
+</style>
+</head>
+<body>
+<main class="wrap">
+
+  <p class="label">Start page</p>
+  <header class="top">
+    <div class="brand"><span class="led"></span><h1>Spyglass</h1></div>
+  </header>
+  <div class="projects">
+    <div class="project">
+      <b>Demo App</b>
+      <span>~/Projects/demo-app</span>
+      <span>1 agent working · last active 21:04</span>
+    </div>
+  </div>
+
+  <p class="label">A project's board</p>
+  <header class="top">
+    <div class="brand">
+      <span class="led"></span>
+      <div><h1>Spyglass · Demo App</h1><div class="where">demo-app · ~/Projects/demo-app · coupon</div></div>
+    </div>
+    <div class="stats"><span class="conn"><span class="led"></span>LIVE</span></div>
+  </header>
+  <div class="nowbar">
+    <span class="tag">NOW</span>
+    <span class="what">Add a coupon field · Editing src/cart.ts · 1 agent working</span>
+    <span class="meta"><b>4m 12s</b></span>
+  </div>
+  <nav class="tabs"><span class="on">Board</span><span>Terminal</span><span>Timeline</span></nav>
+  <section class="agents">
+    <h2>Background agents<span class="count">1 agent working</span></h2>
+    <div class="agent live"><span class="dot"></span><b>Docs: coupon field</b><span class="step">Editing guide.md</span><span class="when">21:04</span></div>
+    <div class="agent"><span class="dot"></span><b>Check the cart tests</b><span class="step">finished 20:51</span><span class="when">20:51</span></div>
+  </section>
+  <footer class="keys"><span>read only · nothing leaves this computer</span></footer>
+
+</main>
+</body>
+</html>

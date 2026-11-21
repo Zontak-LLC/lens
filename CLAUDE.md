@@ -1,4 +1,6 @@
-# Lens (was Night Shift)
+# Spyglass (was Lens, before that Night Shift)
+
+The name on screen and in the docs is Spyglass; code, files, the command and the repo still say lens/nightshift (decisions.md).
 
 A live screen for Claude Code agents. Read `docs/SPEC.md` (what and why) and `docs/decisions.md` (the decision tree)
 before changing anything; update both in the same commit when a choice changes.

@@ -1,10 +1,10 @@
-# Lens: specification
+# Spyglass: specification
 
 Version 0.7 · 2026-10-24 · Owner: Denis Zontak · Status: draft, being shaped by conversation
 
 ## 1. One sentence
 
-Lens is a free, open-source tool any developer runs on their own computer to see, live, what their Claude Code agents are doing right now and what they did overnight, without reading terminal logs.
+Spyglass is a free, open-source tool any developer runs on their own computer to see, live, what their Claude Code agents are doing right now and what they did overnight, without reading terminal logs.
 
 ## 2. Why it exists
 
@@ -37,12 +37,12 @@ Every choice below was picked for this job, not from habit. The runner-up is nam
 
 - **Claude Code session logs:** one JSON-lines file per session, under `~/.claude/projects/<project-folder>/<session-id>.jsonl`. Each line is one event: a message, a tool call (read a file, edit a file, run a command), a tool result, with a timestamp, the working folder and the git branch.
 - **Not read:** multi-agent workflow runs under `.../subagents/workflows/`. Forge runs and shows them (decisions.md, 2026-11-17).
-- Lens only **reads** these files. It never writes to them, never starts or stops an agent, and never sends anything off the Mac.
+- Spyglass only **reads** these files. It never writes to them, never starts or stops an agent, and never sends anything off the Mac.
 
 ## 5b. Background agents
 
 A session can start background agents. Their logs sit next to the session (`<session>/subagents/agent-<id>.jsonl`,
-name in `agent-<id>.meta.json`). Lens follows them like any log. Each is a worker linked to its parent session and
+name in `agent-<id>.meta.json`). Spyglass follows them like any log. Each is a worker linked to its parent session and
 filed under the project it really works in (decisions.md says how, and where it can be wrong). The Board tab lists
 them under the NOW strip, which counts the active ones, the Terminal tab streams their steps tagged with their name, the
 Timeline draws a bar each, and the start page lists projects that only helpers touched.
@@ -53,13 +53,13 @@ Timeline draws a bar each, and the start page lists projects that only helpers t
 1. **Now:** every Claude Code session active in the last 10 minutes, one row each: project, branch, what it is doing right now ("Editing src/lib/day-nav.ts", "Running npm run ci"), and how long ago. It updates live (under 2 seconds after the log changes).
 2. **Session detail:** click a session to see its steps as a timeline: reads, edits, commands, test results, in order, with times.
 3. **Background agents:** each project's board lists the background agents working in it (section 5b). Multi-agent
-   workflow runs are Forge's to run and show, not Lens's (decisions.md, 2026-11-17).
+   workflow runs are Forge's to run and show, not Spyglass's (decisions.md, 2026-11-17).
 4. **A board per project (the owner's choice, 2026-10-23):** each project has its own board at its own address
    (`http://localhost:4400/<project>`); open as many as you like, side by side in their own windows or tabs. One running
-   Lens serves them all. **Every board says plainly which project it shows:** the GitHub repo
+   Spyglass serves them all. **Every board says plainly which project it shows:** the GitHub repo
    (`Zontak-LLC/usehourly`, read from the project's git remote; the folder name when there is none), the folder
    (`~/Projects/usehourly`) and each session's branch, in the board's header; the browser tab is titled
-   "Lens · usehourly" so several windows can be told apart. The start page (`http://localhost:4400/`) lists the projects with something running in
+   "Spyglass · usehourly" so several windows can be told apart. The start page (`http://localhost:4400/`) lists the projects with something running in
    the last 10 minutes, one click to each board; quiet projects are not listed (their runs are in History).
 5. **History:** last night's runs kept in SQLite; a "Last night" view that summarises what was done: sessions, files changed, commands run, errors.
 6. **One command to start, for anyone:** `npx nightshift` finds the Claude Code logs folder on its own (macOS, Linux and Windows locations), starts the service and opens the page. A first-run screen says what it found ("12 projects, 3 sessions running") and how to change it.
@@ -68,7 +68,7 @@ Timeline draws a bar each, and the start page lists projects that only helpers t
 **Out (not in version 1, on purpose):**
 - Watching GitHub pull requests and CI runs (version 2).
 - Controlling agents (pausing, stopping): version 1 only watches.
-- **Night run (version 2, the owner's idea, 2026-10-23):** Lens starts the night's work itself. **By default it
+- **Night run (version 2, the owner's idea, 2026-10-23):** Spyglass starts the night's work itself. **By default it
   runs all night until every ticket in the queue is done.** A developer whose account has a usage limit can set one
   (`ticketLimit` in `nightshift.config.json`, for example 5 or 10): the run then stops cleanly after that many tickets
   with a summary, and **"Start next batch"** runs the next ones. Either way, reaching the account's usage limit pauses
@@ -85,7 +85,7 @@ Claude Code log files ──► Watcher ──► Parser ──► Event store (
 ```
 
 - **Watcher:** follows the log folders, reads only the new lines of a file that grew, survives files that are created, rotated or deleted.
-- **Parser:** turns one raw log line into one Lens event (`session.started`, `tool.read`, `tool.edit`, `tool.command`, `tool.result`, `agent.started`, `agent.finished`, ...). Pure functions, no file access, fully tested.
+- **Parser:** turns one raw log line into one Spyglass event (`session.started`, `tool.read`, `tool.edit`, `tool.command`, `tool.result`, `agent.started`, `agent.finished`, ...). Pure functions, no file access, fully tested.
 - **Event store:** writes events to SQLite and keeps the current state of each session in memory.
 - **Stream:** `GET /events` sends every new event to the open pages (SSE); `GET /state` returns the current state for a page that just opened.
 - **Desks:** `GET /agents` (`http://127.0.0.1:4400/agents`, the port is `NIGHTSHIFT_PORT`) returns every live agent as
@@ -103,7 +103,7 @@ Claude Code log files ──► Watcher ──► Parser ──► Event store (
 - **Readable for hours** (decided 2026-10-24, see `decisions.md`): dark grey-blue, soft off-white text, colour only with a
   meaning (blue live, green done, amber needs attention), sans titles and monospace machine output.
 - **Laid out like the first design (the owner's pick, 2026-10-24; its ticket floor removed 2026-11-17, mockup in
-  `docs/board-design/`):** a header with the status light, "Lens · <project>", the repo,
+  `docs/board-design/`):** a header with the status light, "Spyglass · <project>", the repo,
   folder and branch, the usage meters, the LIVE light and the Sentinel link; a NOW strip (the newest step and who took
   it; amber with the trouble and its reset time when work has stopped); three tabs, remembered: **Board** (the From
   Sentinel lane when there is one, then the background agents), **Terminal** (one block per step, the running one
@@ -117,13 +117,13 @@ Claude Code log files ──► Watcher ──► Parser ──► Event store (
 
 The board never looks busy while nothing happens. The NOW strip turns amber and says it in words, with the next step:
 
-| What happens                       | What the board says                                                                                                                                                                                                                                                                        |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Usage limit                        | "Paused: usage limit since 21:40 · resets 22:40 (in 58 min). Nothing is lost; work continues by itself."                                                                                                                                                                                   |
-| Connection lost, computer slept    | "Waiting on Claude: connection trouble since 21:40."                                                                                                                                                                                                                                       |
-| Login expired                      | "Logged out: run /login in Claude Code since 21:40."                                                                                                                                                                                                                                       |
-| The page loses Lens                | The status light turns amber: "RECONNECTING…"                                                                                                                                                                                                                                              |
-| Lens itself stops reading the logs | `GET /health` answers 503 `{"ok":false,"status":"stale","lastLineAt":…,"unreadSince":…}`: a log has had bytes Lens has not read for 30 minutes (a log that is only touched is not work); Lens then writes one line naming the file and kills itself (SIGKILL), and the service restarts it |
+| What happens                           | What the board says                                                                                                                                                                                                                                                                                |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Usage limit                            | "Paused: usage limit since 21:40 · resets 22:40 (in 58 min). Nothing is lost; work continues by itself."                                                                                                                                                                                           |
+| Connection lost, computer slept        | "Waiting on Claude: connection trouble since 21:40."                                                                                                                                                                                                                                               |
+| Login expired                          | "Logged out: run /login in Claude Code since 21:40."                                                                                                                                                                                                                                               |
+| The page loses Spyglass                | The status light turns amber: "RECONNECTING…"                                                                                                                                                                                                                                                      |
+| Spyglass itself stops reading the logs | `GET /health` answers 503 `{"ok":false,"status":"stale","lastLineAt":…,"unreadSince":…}`: a log has had bytes Spyglass has not read for 30 minutes (a log that is only touched is not work); Spyglass then writes one line naming the file and kills itself (SIGKILL), and the service restarts it |
 
 A background agent stopped by a limit shows as waiting on its desk (`GET /agents`). Each notice clears by itself at the
 next real step.
@@ -136,11 +136,11 @@ Each scenario is an automated test that feeds real-shaped log lines in and check
 3. **Two projects at once:** two projects work at the same time; each board shows only its own project's sessions and
    steps, never mixed, and the start page lists both. A third project that was busy yesterday but is quiet now is not
    listed. Each board's header and tab title name its repo (or folder), so the two windows cannot be confused.
-4. **A workflow runs (left to Forge):** a session folder holds a workflow run under `subagents/workflows/`; Lens shows
-   none of its agents on a board, a tile or `GET /agents`, and a history from an older Lens replays
+4. **A workflow runs (left to Forge):** a session folder holds a workflow run under `subagents/workflows/`; Spyglass shows
+   none of its agents on a board, a tile or `GET /agents`, and a history from an older Spyglass replays
    without them.
 5. **A broken line:** a half-written or unknown log line is skipped and counted, never crashes the service.
-6. **Restart:** stop and start Lens; history and current state come back from SQLite; nothing is shown twice.
+6. **Restart:** stop and start Spyglass; history and current state come back from SQLite; nothing is shown twice.
 7. **Last night:** after an 8-hour run, "Last night" lists the sessions, the files changed and any failed commands.
 8. **Read only:** no test, and no code path, writes inside the Claude Code folder.
 9. **A stranger installs it:** on a clean machine with Claude Code logs in the usual place, `npx nightshift` starts, finds the logs, and the first-run screen names what it found, with no setup.
@@ -177,7 +177,7 @@ Claude writes most of the code; these keep it from drifting into a mess on a lon
 
 ## 12. Open questions
 
-1. Name: Lens (2026-11-06). The npm and command name stay nightshift.
+1. Name: Spyglass (2026-11-21). The npm and command name stay nightshift.
 2. Port 4400, or another?
 3. Should "Last night" also be sent somewhere in the morning (a notification, an email to myself), or only shown on the page?
 4. Which projects to watch by default: all of them, or ask on first run?
@@ -185,12 +185,13 @@ Claude writes most of the code; these keep it from drifting into a mess on a lon
 
 ## 13. Change log
 
+- 1.7 (2026-11-21): the public name on screen and in the docs is Spyglass (owner, 2026-11-21); code names, the command, the repo and the service keep theirs (decisions.md).
 - 1.6 (2026-11-21): GET /api/agents (Forge's Agents tile) is removed; Forge no longer reads it. GET /agents for Motherboard is unchanged.
-- 1.5 (2026-11-17): Lens no longer shows the usage meter or links to Sentinel; Motherboard owns both (decisions.md).
-- 1.4 (2026-11-17): Lens no longer follows multi-agent workflow runs or draws their ticket floor; Forge runs and shows them (issue 28). The Board tab keeps the NOW strip and the background agents; the usage meters and Sentinel parts stay.
-- 1.3 (2026-11-17): stale means a log has had unread bytes for 30 minutes (a touched log is not work); a stale Lens kills itself (SIGKILL) so the service always starts a fresh one.
-- 1.2 (2026-11-13): names on screen are Forge, Lens, Sentinel, Motherboard (owner, 2026-10-27).
-- 1.1 (2026-11-09): a stale Lens restarts itself: on the first stale health check (every minute) it says so in the error log and exits 1, and the service starts a fresh one.
+- 1.5 (2026-11-17): Spyglass no longer shows the usage meter or links to Sentinel; Motherboard owns both (decisions.md).
+- 1.4 (2026-11-17): Spyglass no longer follows multi-agent workflow runs or draws their ticket floor; Forge runs and shows them (issue 28). The Board tab keeps the NOW strip and the background agents; the usage meters and Sentinel parts stay.
+- 1.3 (2026-11-17): stale means a log has had unread bytes for 30 minutes (a touched log is not work); a stale Spyglass kills itself (SIGKILL) so the service always starts a fresh one.
+- 1.2 (2026-11-13): names on screen are Forge, Sentinel, Motherboard and this tool's own name (Spyglass since 1.7) (owner, 2026-10-27).
+- 1.1 (2026-11-09): a stale Spyglass restarts itself: on the first stale health check (every minute) it says so in the error log and exits 1, and the service starts a fresh one.
 - 1.0 (2026-11-07): `/health` tells the truth: the time of the last line read, and "stale" (503) when no line was read for 30 minutes while there was work (since 1.3: unread bytes). A quiet computer is not stale. The watcher reads a huge log a slice at a time and never lets one unreadable or stuck file stop the others.
 - 0.9 (2026-10-24): the link to Sentinel (read only): a Live site strip, a From Sentinel lane of incidents on the board of a watched project, a site light on its start page tile, and a `→ Sentinel` link (decision in decisions.md).
 - 0.8 (2026-10-24): a session shows on every repository it works in (steps split by where they work), and the start page lists a fixed project list from `~/.nightshift/projects.json` (idle ones dimmer), plus recently used repos under `~/Projects`.
