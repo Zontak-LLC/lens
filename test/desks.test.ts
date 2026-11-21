@@ -136,7 +136,6 @@ describe("Motherboard pulls this computer's live agents", () => {
     expect(await until(() => deskById(board.desks(NOW), "agent:bg1")?.stepCount === 4)).toBe(true);
     expect(deskById(board.desks(NOW), "agent:x")).toBeUndefined();
     expect(board.desks(NOW).list?.map((d) => d.id)).toEqual(["agent:bg1", `main:${SESSION}`]);
-    expect(board.running(NOW).agents.map((a) => a.role)).toEqual(["background agent", "main session"]);
     expect(board.view("shop-app", NOW).agents).toEqual([]);
     expect(board.view("docs-site", NOW).agents.map((a) => a.agentId)).toEqual(["bg1"]);
     expect(board.projects(NOW).map((p) => [p.project, p.agents])).toEqual([

@@ -93,11 +93,8 @@ Claude Code log files ──► Watcher ──► Parser ──► Event store (
   repo, model, current step and the two before it, step count, run time and `state` (`waits` = "waits for
   you"). Read only (other methods get 405), `cache-control: no-store`, this computer only (Host check), no CORS. No
   dollar cost: `costUsd` is null. Tokens are kept per agent, but the contract has no field for them yet (decisions.md).
-- **Forge's Agents tile:** `GET /api/agents` (`http://127.0.0.1:4400/api/agents`) returns only the running agents
-  (working or waiting) in Forge's shape (issue 14): `{ "agents": [ { role, worksOn, startedAt, limitMinutes } ] }`,
-  at most 20, waiting first. `worksOn` is `<repo>: <title>` (single spaces, at most 200 characters, home folder
-  as `~`); `startedAt` the agent's newest line; `limitMinutes` always null (Forge's 15). Same rules as `/agents`: GET only (405), `no-store`, no CORS, and only a Host of `127.0.0.1` or `localhost`
-  with the port is answered (any other, e.g. a container name or a LAN address, gets 403).
+  Only a Host of `127.0.0.1` or `localhost` with the port is answered (any other, e.g. a container name or a LAN
+  address, gets 403).
 - **Page:** plain TypeScript and CSS (no framework needed for v1), drawn from the state plus the stream.
 - **Layers only point one way:** page → stream → store → parser. The page never reads files; the parser never touches the database. An architecture test enforces it.
 
@@ -140,7 +137,7 @@ Each scenario is an automated test that feeds real-shaped log lines in and check
    steps, never mixed, and the start page lists both. A third project that was busy yesterday but is quiet now is not
    listed. Each board's header and tab title name its repo (or folder), so the two windows cannot be confused.
 4. **A workflow runs (left to Forge):** a session folder holds a workflow run under `subagents/workflows/`; Lens shows
-   none of its agents on a board, a tile, `GET /agents` or `GET /api/agents`, and a history from an older Lens replays
+   none of its agents on a board, a tile or `GET /agents`, and a history from an older Lens replays
    without them.
 5. **A broken line:** a half-written or unknown log line is skipped and counted, never crashes the service.
 6. **Restart:** stop and start Lens; history and current state come back from SQLite; nothing is shown twice.
@@ -188,6 +185,7 @@ Claude writes most of the code; these keep it from drifting into a mess on a lon
 
 ## 13. Change log
 
+- 1.6 (2026-11-21): GET /api/agents (Forge's Agents tile) is removed; Forge no longer reads it. GET /agents for Motherboard is unchanged.
 - 1.5 (2026-11-17): Lens no longer shows the usage meter or links to Sentinel; Motherboard owns both (decisions.md).
 - 1.4 (2026-11-17): Lens no longer follows multi-agent workflow runs or draws their ticket floor; Forge runs and shows them (issue 28). The Board tab keeps the NOW strip and the background agents; the usage meters and Sentinel parts stay.
 - 1.3 (2026-11-17): stale means a log has had unread bytes for 30 minutes (a touched log is not work); a stale Lens kills itself (SIGKILL) so the service always starts a fresh one.

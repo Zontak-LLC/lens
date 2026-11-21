@@ -229,7 +229,6 @@ describe("a developer upgrades Lens over a history with old pipeline rows", () =
     expect(replayed).toBe(3); // session.seen, the main session's step and bg1's step: skipped rows are not counted
     expect(history.count()).toBe(rows.length); // nothing deleted: the 30-day prune removes them
     expect(board.desks(NOW, "").list?.map((d) => d.id)).toEqual(["agent:bg1", "main:s-main"]);
-    expect(board.running(NOW, "").agents.map((a) => a.role)).toEqual(["background agent", "main session"]);
     expect(board.view("shop-app", NOW).agents.map((a) => a.agentId)).toEqual(["bg1"]);
     expect(board.projects(NOW)).toEqual([
       { project: "shop-app", folder: "/work/shop-app", lastAt: t("04:10"), agents: 1 },
