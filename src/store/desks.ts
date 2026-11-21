@@ -122,7 +122,7 @@ export class DeskLog {
   }
 }
 
-export type Seated = { desk: Desk; lastAt: string };
+type Seated = { desk: Desk; lastAt: string };
 
 /** The board's words for why it stopped; the steps are the one place the contract has for them. */
 const stopLine = (t: Trouble) => (t.resetsAt ? `${t.reason}, resets ${t.resetsAt}` : t.reason);
@@ -162,7 +162,7 @@ function deskOf(p: Parts, nowMs: number, hideHome: (text: string) => string): Se
 }
 
 /** Every live desk: waiting for the owner first, then the active ones, then the newest. The whole list, uncut. */
-export function seatedOf(src: Source, nowMs: number): Seated[] {
+function seatedOf(src: Source, nowMs: number): Seated[] {
   const hideHome = homeHider(src.home);
   const seated = partsOf(src, nowMs)
     .map((p) => deskOf(p, nowMs, hideHome))

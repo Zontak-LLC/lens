@@ -5,8 +5,8 @@ import { isDeepStrictEqual } from "node:util";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type Engine, startEngine } from "../src/engine.js";
 
-// Issue 28: removing pipelines must not change what Motherboard (`GET /agents`) and Forge (`GET /api/agents`) get for
-// main sessions and background agents. test/fixtures/agents-snapshot.json was generated once, on the code before the
+// Issue 28: removing pipelines must not change what Motherboard (`GET /agents`) gets for main sessions and
+// background agents. test/fixtures/agents-snapshot.json was generated once, on the code before the
 // removal, from the desks fixtures WITHOUT a workflow folder (main session s-desk-1 and background agent bg1). It is
 // never regenerated or edited by hand. This file sets up its own logs, so it runs unchanged on the older code too.
 const FIXTURES = join(import.meta.dirname, "fixtures");
@@ -43,15 +43,12 @@ const until = async (check: () => boolean, ms = 3000) => {
 };
 
 describe("main sessions and background agents look the same as before pipelines were removed", () => {
-  it("GET /agents and GET /api/agents give exactly the snapshot", async () => {
+  it("GET /agents gives exactly the snapshot", async () => {
     engine = startEngine({ root: join(base, "logs"), dbPath: join(base, "ns.db"), everyMs: 40 });
     const { board } = engine;
     const snapshot = JSON.parse(readFileSync(SNAPSHOT, "utf8"));
     // Wait until the watcher has read every log (the meta file is read just after its agent's log), then compare.
     await until(() => isDeepStrictEqual(board.desks(NOW, base), snapshot.desks));
-    // The fixture has running desks, so Forge's list is not empty and records every field it sends.
-    expect(snapshot.running.agents.length).toBeGreaterThan(0);
     expect(board.desks(NOW, base)).toEqual(snapshot.desks);
-    expect(board.running(NOW, base)).toEqual(snapshot.running);
   });
 });

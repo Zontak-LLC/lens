@@ -232,6 +232,7 @@ Forge was Day Shift; the identifiers (`store/day-shift.ts`, `DayShiftAgents`) an
   `worksOn` is built from the desk's repo, ticket and title (the home folder already shown as `~`): single spaces, cut
   to 200 characters last, `agent` if empty. Titles, never prompts or a background agent's task. Forge redacts too,
   but a secret typed into a session title would still go out.
+- **Replaced 2026-11-21** ("GET /api/agents removed").
 
 ## Pipelines removed (issue 28, 2026-11-17)
 
@@ -275,6 +276,19 @@ Forge was Day Shift; the identifiers (`store/day-shift.ts`, `DayShiftAgents`) an
   28, so the new one has its own name).
 - **Mockup:** `docs/board-design/no-sentinel-no-meter.html`.
 - Replaces: "Usage meter in the header" (2026-10-24) and "The link to Sentinel" (under Projects everywhere).
+
+## GET /api/agents removed (issue 37, 2026-11-21)
+
+- **Why.** Forge and board-kit no longer read `GET /api/agents` (Flow checked Forge's src and scripts and board-kit's
+  src, 2026-11-20). A second contract that nobody reads is still one to keep working, so it goes.
+- **What went:** the `/api/agents` route (it now answers 404 "Not found", like any other unknown path),
+  `store/day-shift.ts` (Forge's shape and its cut to 20 running agents), `Board.running` and the server source's
+  `running`, `test/day-shift-agents.test.ts` and its three fixtures (`test/fixtures/day-shift-agents.ts`,
+  `day-shift-agents-contract.txt`, `api-agents-snapshot.json`). `seatedOf` in `store/desks.ts` is no longer exported:
+  only `desksOf` reads it.
+- **What stayed:** `GET /agents` for Motherboard, byte for byte, guarded by `test/agents-unchanged.test.ts` (its golden
+  file `test/fixtures/agents-route-snapshot.json`). `test/fixtures/agents-snapshot.json` is kept whole; its `running`
+  key is no longer read. `test/desks-many.test.ts` keeps the 50-desk cut and the busy-first order under test.
 
 ## Prompts stay out of the service log (2026-11-20)
 

@@ -1,8 +1,7 @@
 import { homedir } from "node:os";
 import { basename } from "node:path";
 import type { NightEvent } from "../parser/index.js";
-import { type DayShiftAgents, runningAgents } from "./day-shift.js";
-import { DeskLog, type DesksView, type DeskTokens, desksOf, seatedOf } from "./desks.js";
+import { DeskLog, type DesksView, type DeskTokens, desksOf } from "./desks.js";
 import { type NowRow, nowRows, placeStep, type Spot } from "./places.js";
 import { type RootOf, repoRootOf } from "./root.js";
 import { type Alert, alertsOf, type Trouble, troubleFrom } from "./trouble.js";
@@ -114,11 +113,6 @@ export class Board {
   /** One desk per live agent on this computer, for Motherboard's Agents tab (`GET /agents`, see desks.ts). */
   desks(nowMs = Date.now(), home = homedir()): DesksView {
     return desksOf(this.deskSource(home), nowMs);
-  }
-
-  /** The running agents, for Forge's Agents tile (`GET /api/agents`, see day-shift.ts). */
-  running(nowMs = Date.now(), home = homedir()): DayShiftAgents {
-    return runningAgents(seatedOf(this.deskSource(home), nowMs));
   }
 
   private deskSource(home: string) {
