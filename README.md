@@ -83,11 +83,62 @@ stays at home). Idle projects stay on the start page, dimmer.
 
 ## Run it in the background
 
+Run it as a service, so the computer starts it again whenever it stops. Run these from this folder, after
+`npm run build`; the here-docs fill in your own paths.
+
+macOS (a LaunchAgent; the log goes to `~/Library/Logs/lens.log`):
+
 ```bash
-nohup npm start > /tmp/lens.log 2>&1 &    # start (from this folder, after npm run build)
-curl -s localhost:4400/health              # {"ok":true,"status":"ok","lastLineAt":"…","unreadSince":null}; 503 "stale" when it fell behind
-pkill -f "dist/cli.js"                     # stop (it saves its place and closes the file)
+cat > ~/Library/LaunchAgents/dev.lens.plist <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>dev.lens</string>
+  <key>ProgramArguments</key>
+  <array><string>$(command -v node)</string><string>$PWD/dist/cli.js</string></array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>$HOME/Library/Logs/lens.log</string>
+  <key>StandardErrorPath</key><string>$HOME/Library/Logs/lens.log</string>
+</dict>
+</plist>
+EOF
+touch ~/Library/Logs/lens.log && chmod 600 ~/Library/Logs/lens.log   # only you can read the log
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/dev.lens.plist   # start
+tail -f ~/Library/Logs/lens.log                                          # follow the log
+launchctl bootout gui/$(id -u)/dev.lens                                  # stop (it saves its place and closes the file)
 ```
+
+Linux (a systemd user unit; the log goes to your own journal):
+
+```bash
+mkdir -p ~/.config/systemd/user
+cat > ~/.config/systemd/user/lens.service <<EOF
+[Unit]
+Description=Lens, a live screen for Claude Code agents
+
+[Service]
+ExecStart=$(command -v node) $PWD/dist/cli.js
+Restart=always
+
+[Install]
+WantedBy=default.target
+EOF
+systemctl --user daemon-reload
+systemctl --user enable --now lens    # start, and start again at every login
+journalctl --user -u lens -f          # follow the log
+systemctl --user stop lens            # stop (it saves its place and closes the file)
+```
+
+Check it on either:
+
+```bash
+curl -s localhost:4400/health   # {"ok":true,"status":"ok","lastLineAt":"…","unreadSince":null}; 503 "stale" when it fell behind
+```
+
+The log holds steps, titles and file names, never the prompts you type, and only you can read it. The service must
+start Lens again: a Lens that falls behind (`/health` says "stale") kills itself so a fresh one can take over.
 
 ## Work on it
 

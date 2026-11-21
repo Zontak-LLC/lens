@@ -5,13 +5,13 @@ import type { NightEvent } from "./parser/index.js";
  * The terminal view of the live stream (ticket 3's visible win): one short line per step, "demo-app  Editing x.ts".
  * Pure: it remembers each session's project from its "session.seen" event and returns the line to print, or null.
  * Claude Code writes a session's title and pull-request link into the log again from time to time, so each is printed
- * only when it is new for that session.
+ * only when it is new for that session. Prompts are never printed, because this output ends up in a service log.
  */
 export function terminalPrinter(
   agentOf: (agentId: string) => { project: string; name: string } | null = () => null,
 ): (event: NightEvent) => string | null {
   const main = lineFor();
-  // Log text (a prompt, a title, a file name) may hold escape codes that would steer the terminal: print them inert.
+  // Log text (a title, a file name) may hold escape codes that would steer the terminal: print them inert.
   return (event) => {
     const agent = event.agentId ? agentOf(event.agentId) : null;
     const out = agent ? agentLine(event, agent) : main(event);
@@ -60,8 +60,6 @@ function lineFor(): (event: NightEvent) => string | null {
         return `${time}  ${project} ${event.summary}`;
       case "tool.result":
         return event.ok ? null : `${time}  ${project} ✕ that step failed`;
-      case "prompt":
-        return `${time}  ${project} ▸ asked: ${event.text}`;
       case "session.title":
         if (titleOf.get(event.sessionId) === event.title) return null;
         titleOf.set(event.sessionId, event.title);
