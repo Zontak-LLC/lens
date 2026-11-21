@@ -10,8 +10,8 @@ const README = readFileSync(join(ROOT, "README.md"), "utf8");
 const SHOT = join(ROOT, "docs", "screenshot.png");
 
 describe("the README a stranger reads first", () => {
-  it("is about Lens and shows the board", () => {
-    expect(README.startsWith("# Lens\n")).toBe(true);
+  it("is about Spyglass and shows the board", () => {
+    expect(README.startsWith("# Spyglass\n")).toBe(true);
     expect(README).toContain("](docs/screenshot.png)");
   });
 
@@ -33,14 +33,15 @@ describe("the README a stranger reads first", () => {
   });
 
   // A stale Lens kills itself, so the README's background setup must be a service that starts it again.
-  it("runs Lens in the background as a service that restarts it", () => {
+  it("runs Spyglass in the background as a service that restarts it", () => {
     expect(README).toContain("KeepAlive");
     expect(README).toContain("Restart=always");
   });
 
   // The one place the old name is meant: README's note on why the command keeps it. Only that exact sentence is
   // removed, so a second mention anywhere else still fails.
-  const RENAME_NOTE = "Lens was called Night Shift; the command and ~/.nightshift keep that name for now.";
+  const RENAME_NOTE =
+    "Spyglass was called Lens, and before that Night Shift; the command and ~/.nightshift keep that name for now.";
   const docs: [string, string][] = [
     ["README.md", README.replace(RENAME_NOTE, "")],
     ["SECURITY.md", readFileSync(join(ROOT, "SECURITY.md"), "utf8")],
@@ -48,7 +49,7 @@ describe("the README a stranger reads first", () => {
   ];
 
   it("keeps its one rename note", () => {
-    expect(README).toContain(RENAME_NOTE);
+    expect(README.split(RENAME_NOTE)).toHaveLength(2);
   });
 
   it.each(docs)("%s says none of the old names", (_file, text) => {

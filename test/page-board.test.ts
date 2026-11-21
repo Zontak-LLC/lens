@@ -1,6 +1,7 @@
 import { runInNewContext } from "node:vm";
 import { describe, expect, it } from "vitest";
 import { startServer } from "../src/server/index.js";
+import { OLD_NAMES } from "./old-names.js";
 
 // Issue 28: the Board tab without the pipeline. The page served for a project is run against a small stand-in for the
 // browser's document, fed one `board` event, and the elements it built are read back.
@@ -72,6 +73,11 @@ async function pageScript(): Promise<string> {
 
 /** Runs the page (for project shop-app by default), sends it one board, and returns the page's root element. */
 async function drawBoard(view: unknown, pathname = "/shop-app", kind = "board"): Promise<Node> {
+  return (await drawPage(view, pathname, kind)).root;
+}
+
+/** Like drawBoard, and also returns the browser tab's title the page set. */
+async function drawPage(view: unknown, pathname: string, kind: string): Promise<{ root: Node; title: string }> {
   const root = fakeNode("main");
   const listeners: Record<string, (e: { data: string }) => void> = {};
   const document = {
@@ -93,7 +99,7 @@ async function drawBoard(view: unknown, pathname = "/shop-app", kind = "board"):
     window: {},
   });
   listeners[kind]?.({ data: JSON.stringify(view) });
-  return root;
+  return { root, title: document.title };
 }
 
 const NOW_ISO = new Date().toISOString();
@@ -147,7 +153,7 @@ describe("the Board tab without the pipeline (issue 28)", () => {
 
 describe("the page without the usage meter and the Sentinel link (Motherboard shows both)", () => {
   it("draws a header with the name and the LIVE light only, no Live site strip and no From Sentinel lane", async () => {
-    // A board from an older Lens still carrying the removed keys: the page ignores them.
+    // A board from an older version still carrying the removed keys: the page ignores them.
     const old = view({ meter: { five_hour: 42, seven_day: 78 }, watch: { siteId: "demo-app", status: "up" } });
     const nodes = all(await drawBoard(old));
     const text = nodes.map((n) => n.textContent).join("\n");
@@ -181,5 +187,21 @@ describe("the page without the usage meter and the Sentinel link (Motherboard sh
     expect(card?.children.map((c) => c.textContent)).toEqual(["Demo App", "~/Projects/demo-app", "no activity yet"]);
     expect(nodes.some((n) => n.className.includes("sitelight"))).toBe(false);
     expect(nodes.map((n) => n.textContent).join("\n")).not.toContain("Sentinel");
+  });
+});
+
+describe("the public name Spyglass on screen", () => {
+  it("names a project's board Spyglass in the tab title, the header and the terminal banner", async () => {
+    const { root, title } = await drawPage(view({ name: "Shop App" }), "/shop-app", "board");
+    const nodes = all(root);
+    expect(title).toBe("Spyglass · Shop App");
+    expect(nodes.find((n) => n.tag === "h1")?.textContent).toBe("Spyglass · Shop App");
+    expect(nodes.find((n) => n.className === "banner")?.textContent).toBe("Spyglass · shop-app · coupon");
+    for (const old of OLD_NAMES) expect(nodes.map((n) => n.textContent).join("\n")).not.toContain(old);
+  });
+
+  it("shows Spyglass as the start page's brand", async () => {
+    const root = await drawBoard([], "/", "projects");
+    expect(all(root).find((n) => n.tag === "h1")?.textContent).toBe("Spyglass");
   });
 });

@@ -11,7 +11,7 @@ export function parseArgs(args: string[]): Command {
 
 export function usage(version: string): string {
   return [
-    `Lens ${version}`,
+    `Spyglass ${version}`,
     "A live screen for your Claude Code agents: what they are doing now and what they did overnight.",
     "",
     "Usage:",
@@ -22,14 +22,14 @@ export function usage(version: string): string {
     "Settings: NIGHTSHIFT_PORT (default 4400), NIGHTSHIFT_LOGS (default ~/.claude/projects),",
     "NIGHTSHIFT_DATA (where the history is kept, default ~/.nightshift), NIGHTSHIFT_KEEP_DAYS (default 30).",
     "",
-    "Lens only reads Claude Code's log files. Nothing leaves your computer.",
+    "Spyglass only reads Claude Code's log files. Nothing leaves your computer.",
   ].join("\n");
 }
 
 /** What the command prints once it is running: what it watches, where the history is, and the two addresses. */
 export function startBanner(o: { version: string; root: string; db: string; keepDays: number; port: number }): string {
   return [
-    `Lens ${o.version} · watching ${o.root}`,
+    `Spyglass ${o.version} · watching ${o.root}`,
     `History: ${o.db} (${o.keepDays} days)`,
     `Board: http://localhost:${o.port}/`,
     `Desks: http://localhost:${o.port}/agents`,

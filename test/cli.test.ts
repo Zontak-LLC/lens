@@ -31,10 +31,10 @@ describe("a developer runs nightshift for the first time", () => {
   it("explains what it does, how to use it, and that nothing leaves the computer", () => {
     const { stdout, status } = run("--help");
     expect(status).toBe(0);
-    expect(stdout).toMatch(/^Lens \d+\.\d+\.\d+/);
+    expect(stdout).toMatch(/^Spyglass \d+\.\d+\.\d+/);
     expect(stdout).toContain("Claude Code agents");
     expect(stdout).toContain("-v, --version");
-    expect(stdout).toContain("Lens only reads Claude Code's log files. Nothing leaves your computer.");
+    expect(stdout).toContain("Spyglass only reads Claude Code's log files. Nothing leaves your computer.");
     for (const old of OLD_NAMES) expect(stdout).not.toContain(old);
     // Only Lens's own settings: the usage meter and the Sentinel link are Motherboard's now.
     expect([...stdout.matchAll(/NIGHTSHIFT_\w+/g)].map((m) => m[0])).toEqual([
@@ -71,7 +71,7 @@ describe("a developer runs nightshift for the first time", () => {
       while (!stdout.includes("Desks:") && Date.now() < end) await new Promise((r) => setTimeout(r, 50));
       expect(stdout).toContain(`Board: http://localhost:${port}/`);
       const page = await (await fetch(`http://127.0.0.1:${port}/demo-app`)).text();
-      expect(page).toContain("<title>Lens</title>");
+      expect(page).toContain("<title>Spyglass</title>");
       // The board and the start page's tiles carry no meter and no Sentinel keys.
       const board = (await firstFrame(port, "demo-app")) as Record<string, unknown>;
       expect(board).toMatchObject({ project: "demo-app", name: "demo-app" });
@@ -91,7 +91,7 @@ describe("a developer runs nightshift for the first time", () => {
     }
   }, 30_000);
 
-  it("says Lens, what it watches and where the board is when it starts", () => {
+  it("says Spyglass, what it watches and where the board is when it starts", () => {
     const text = startBanner({
       version: "1.2.3",
       root: "~/.claude/projects",
@@ -99,7 +99,7 @@ describe("a developer runs nightshift for the first time", () => {
       keepDays: 30,
       port: 4400,
     });
-    expect(text.startsWith("Lens 1.2.3 · watching ~/.claude/projects\n")).toBe(true);
+    expect(text.startsWith("Spyglass 1.2.3 · watching ~/.claude/projects\n")).toBe(true);
     expect(text).toContain("History: ~/.nightshift/nightshift.db (30 days)");
     expect(text).toContain("Board: http://localhost:4400/");
     expect(text).toContain("Desks: http://localhost:4400/agents");
@@ -137,6 +137,6 @@ describe("reading the command line", () => {
   });
 
   it("names the version in the help", () => {
-    expect(usage("1.2.3").split("\n")[0]).toBe("Lens 1.2.3");
+    expect(usage("1.2.3").split("\n")[0]).toBe("Spyglass 1.2.3");
   });
 });

@@ -1,8 +1,21 @@
-# Lens: the decision tree
+# Spyglass: the decision tree
 
 Every choice that shapes the project, as a tree: a question, the branch taken, why, and what it ruled out. A branch
 marked **OPEN** waits for an answer; answering it can change the branches under it. Claude adds a node whenever a choice
 is made, in the same commit as the change. Rule 1 applies to every node: the right fit for the job, not habit.
+
+## Spyglass: the public name (2026-11-21)
+
+- **The owner's pick (2026-11-21):** the public name is Spyglass. Theia was the first idea, but Eclipse Theia already
+  uses it for an open-source AI IDE, so Lens becomes Spyglass instead.
+- **Mapping:** Lens -> Spyglass.
+- **Words only.** Every word a person reads changes: the start page, a board's title, header and banner, the loading
+  text, the terminal's help and start line, the 403 text, the service log's stale line, README.md, SECURITY.md and
+  docs/SPEC.md. Identifiers, file and folder names, the `nightshift` command and npm package, ports, URLs, config keys,
+  `~/.nightshift`, `NIGHTSHIFT_*`, the systemd unit, the launchd label and the repo name keep theirs, so no install
+  breaks. Flow renames the repo, the service and the other projects' mentions by hand later.
+- **Kept off the screens:** `test/old-names.ts` now lists the old name too; the page, command and docs tests fail on
+  it. The README's one rename note is the only place a reader still meets it.
 
 ## Who is it for?
 
@@ -384,8 +397,8 @@ Forge was Day Shift; the identifiers (`store/day-shift.ts`, `DayShiftAgents`) an
   command, `~/.nightshift`, `nightshift.db` and the `NIGHTSHIFT_*` settings keep the old name: renaming them is a
   separate decision (it breaks installs and links).
 - **The owner's names (2026-10-27):** Day Shift -> Forge, Night Shift -> Lens, Night Watch -> Sentinel (Motherboard
-  stays). Only words a person reads change; identifiers keep the old names. This entry is the only doc that holds the
-  old-to-new mapping; `test/old-names.ts` lists the old names and the tests keep them off the screens and docs.
+  stays). Only words a person reads change; identifiers keep the old names. This entry and "Spyglass: the public
+  name (2026-11-21)" are the only docs that hold the old-to-new mapping; `test/old-names.ts` lists the old names and the tests keep them off the screens and docs.
 - 2026-11-14: the GitHub repo is now Zontak-LLC/lens (was nightshift); the npm name, the command, ~/.nightshift and NIGHTSHIFT_* keep the old name.
 - **Empty defaults.** A new install pins nothing (`projects.json` is created as `[]`, a damaged one falls back to `[]`)
   and there is no built-in Sentinel site: a project links to a site only through its line's `watchSite`. Recent repos

@@ -4,8 +4,8 @@
  */
 export const CLIENT_END = String.raw`  // ---- the header and the NOW strip ----
   function renderTop(view) {
-    document.title = "Lens · " + (view.name || view.project);
-    ui.title.textContent = "Lens · " + (view.name || view.project);
+    document.title = "Spyglass · " + (view.name || view.project);
+    ui.title.textContent = "Spyglass · " + (view.name || view.project);
     ui.where.textContent = [view.repo, view.folder, view.branch].filter(Boolean).join(" · ");
 
     var alert = view.alerts && view.alerts[0];
@@ -97,7 +97,7 @@ export const CLIENT_END = String.raw`  // ---- the header and the NOW strip ----
     var stick = ui.blocks.scrollHeight - ui.blocks.scrollTop - ui.blocks.clientHeight < 80;
     ui.blocks.textContent = "";
     var banner = el("div", "banner");
-    banner.append(el("b", null, "Lens")," · " + view.project + (view.branch ? " · " + view.branch : ""));
+    banner.append(el("b", null, "Spyglass")," · " + view.project + (view.branch ? " · " + view.branch : ""));
     ui.blocks.append(banner);
     view.now.forEach(function (r) { ui.blocks.append(block(hhmm(r.at), r.who, r.what, true, view)); });
     (view.agents || []).forEach(function (a) {

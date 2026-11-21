@@ -55,7 +55,7 @@ describe("the live stream", () => {
         });
       expect(await answer(`evil.example:${server.port}`)).toEqual({
         status: 403,
-        body: "Lens only answers this computer",
+        body: "Spyglass only answers this computer",
       });
       expect((await answer(`localhost:${server.port}`)).status).toBe(200);
     } finally {
@@ -85,10 +85,10 @@ describe("the live stream", () => {
     });
     try {
       const page = await (await fetch(`http://127.0.0.1:${server.port}/demo-app`)).text();
-      expect(page).toContain("<title>Lens</title>");
-      expect(page).toContain("Connecting to Lens…");
+      expect(page).toContain("<title>Spyglass</title>");
+      expect(page).toContain("Connecting to Spyglass…");
       for (const old of OLD_NAMES) expect(page).not.toContain(old);
-      // The page script is valid JavaScript (a syntax error would leave the page on "Connecting to Lens…").
+      // The page script is valid JavaScript (a syntax error would leave the page on "Connecting to Spyglass…").
       const script = /<script>([\s\S]*)<\/script>/.exec(page)?.[1] ?? "";
       expect(() => new Script(script)).not.toThrow();
       // The usage meter and the Sentinel link are Motherboard's now; the usage-limit trouble alert stays.
@@ -107,7 +107,8 @@ describe("the live stream", () => {
         expect(page).not.toContain(gone);
       expect(script).toContain("Paused: usage limit");
       const startPage = await (await fetch(`http://127.0.0.1:${server.port}/`)).text();
-      expect(startPage).toContain("<title>Lens</title>");
+      expect(startPage).toContain("<title>Spyglass</title>");
+      for (const old of OLD_NAMES) expect(startPage).not.toContain(old);
       // The page loads nothing from the internet: no script, style, font or image from another host.
       expect(page).not.toMatch(/(?:src|href)=["']?https?:|url\(["']?https?:|@import/);
       const res = await fetch(`http://127.0.0.1:${server.port}/events?project=demo-app`);

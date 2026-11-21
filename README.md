@@ -1,8 +1,8 @@
-# Lens
+# Spyglass
 
 A live screen for your Claude Code agents: what they are doing right now, and what they did overnight.
 
-![The Lens board for a demo project: the NOW strip and the background agents](docs/screenshot.png)
+![The Spyglass board for a demo project: the NOW strip and the background agents](docs/screenshot.png)
 
 > Status: works day to day: Board, Terminal and Timeline tabs, `GET /agents`. Not on npm yet. The usage
 > meter and the link to Sentinel live in Motherboard now. See [docs/SPEC.md](docs/SPEC.md).
@@ -29,7 +29,7 @@ Then open http://localhost:4400. The terminal shows the same steps, one line eac
 
 ## What it reads and writes
 
-Lens runs on your own computer. It has no accounts, no server and no telemetry: **nothing leaves your computer.**
+Spyglass runs on your own computer. It has no accounts, no server and no telemetry: **nothing leaves your computer.**
 - It **reads** Claude Code's logs in `~/.claude/projects`, and nothing else.
 - It **writes** only to `~/.nightshift`: its history (`nightshift.db`) and your project list (`projects.json`).
 - The service listens on 127.0.0.1 only and answers only pages on this computer.
@@ -38,7 +38,7 @@ Lens runs on your own computer. It has no accounts, no server and no telemetry: 
 
 `NIGHTSHIFT_PORT` (default 4400), `NIGHTSHIFT_LOGS` (default `~/.claude/projects`), `NIGHTSHIFT_DATA` (where the
 history is kept, default `~/.nightshift`) and `NIGHTSHIFT_KEEP_DAYS` (default 30). `NIGHTSHIFT_STALE_MS` (default 1800000, 30 minutes:
-how long a log's bytes may wait unread before Lens counts as stale and restarts) and `NIGHTSHIFT_WATCHDOG_MS` (default
+how long a log's bytes may wait unread before Spyglass counts as stale and restarts) and `NIGHTSHIFT_WATCHDOG_MS` (default
 60000: how often it checks) exist mostly for tests; anything that is not a positive whole number means the default.
 
 The start page shows the git repositories directly under `~/Projects` that Claude worked in during the last 30 days,
@@ -54,20 +54,20 @@ and any project that is busy right now. To pin projects, name them or hide one, 
 ```
 
 `name` is what the tile and the board title say (the board address uses the folder name); `hide` removes a repo that
-was added by itself. Other keys are ignored, so a line from an older Lens still loads. A damaged file falls back to an
+was added by itself. Other keys are ignored, so a line from an older Spyglass still loads. A damaged file falls back to an
 empty list and says so in the log. Times show in the browser's local time.
 
 ## History
 
-Lens keeps what it saw in one SQLite file (`~/.nightshift/nightshift.db`). Stop and start it: the board comes back as
+Spyglass keeps what it saw in one SQLite file (`~/.nightshift/nightshift.db`). Stop and start it: the board comes back as
 it was, each log file is read on from where it stopped (a file that was replaced or cut short is read again from its
 top), and no step is shown or stored twice. Sessions that have been quiet for more than 30 days are removed, once an
 hour. The file holds your prompts' first lines and tool summaries: it stays on your computer, and only your account can
-read `~/.nightshift`: each time Lens starts it sets the folder to 0700 and the history files to 0600.
+read `~/.nightshift`: each time Spyglass starts it sets the folder to 0700 and the history files to 0600.
 
 ## Background agents
 
-Claude Code runs helpers ("subagents") in the background. Lens follows their logs too
+Claude Code runs helpers ("subagents") in the background. Spyglass follows their logs too
 (`<session>/subagents/agent-*.jsonl`, with the name from `agent-*.meta.json`). Each helper is filed under the project
 it **really works in**, not the folder its parent session started in: the git repository most of its tool calls touch
 (`cd`, `git -C`, file paths). A linked worktree counts as its main repository and is marked "(worktree)". With no
@@ -116,7 +116,7 @@ Linux (a systemd user unit; the log goes to your own journal):
 mkdir -p ~/.config/systemd/user
 cat > ~/.config/systemd/user/lens.service <<EOF
 [Unit]
-Description=Lens, a live screen for Claude Code agents
+Description=Spyglass, a live screen for Claude Code agents
 
 [Service]
 ExecStart=$(command -v node) $PWD/dist/cli.js
@@ -138,7 +138,7 @@ curl -s localhost:4400/health   # {"ok":true,"status":"ok","lastLineAt":"…","u
 ```
 
 The log holds steps, titles and file names, never the prompts you type, and only you can read it. The service must
-start Lens again: a Lens that falls behind (`/health` says "stale") kills itself so a fresh one can take over.
+start Spyglass again: a Spyglass that falls behind (`/health` says "stale") kills itself so a fresh one can take over.
 
 ## Work on it
 
@@ -146,7 +146,7 @@ start Lens again: a Lens that falls behind (`/health` says "stale") kills itself
 npm install
 npm run ci                       # everything CI runs: rules, lint, types, tests with coverage
 npm run dev                      # the command, restarting on every change
-node scripts/demo-board.mjs      # Lens on invented demo data (the screenshot above), in temporary folders
+node scripts/demo-board.mjs      # Spyglass on invented demo data (the screenshot above), in temporary folders
 ```
 
 - [docs/SPEC.md](docs/SPEC.md): what it is, what is in and out, and the scenarios that prove it.
@@ -155,7 +155,7 @@ node scripts/demo-board.mjs      # Lens on invented demo data (the screenshot ab
 
 ## Name
 
-Lens was called Night Shift; the command and ~/.nightshift keep that name for now.
+Spyglass was called Lens, and before that Night Shift; the command and ~/.nightshift keep that name for now.
 
 ## Licence
 
